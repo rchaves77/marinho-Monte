@@ -5,6 +5,7 @@
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
+import Dashboard from './pages/Dashboard';
 import PatientRegistration from './pages/PatientRegistration';
 import Anamnesis from './pages/Anamnesis';
 import TreatmentHistory from './pages/TreatmentHistory';
@@ -17,7 +18,7 @@ export default function App() {
     <BrowserRouter>
       <Layout>
         <Routes>
-          <Route path="/" element={<Navigate to="/cadastro" replace />} />
+          <Route path="/" element={<Dashboard />} />
           <Route path="/cadastro" element={<PatientRegistration />} />
           <Route path="/anamnese" element={<Anamnesis />} />
           <Route path="/evolucao" element={<TreatmentHistory />} />

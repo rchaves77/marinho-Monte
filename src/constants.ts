@@ -29,12 +29,10 @@ export const COLORS = {
 
 export const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/' },
-  { id: 'registration', label: 'Cadastro do Paciente', icon: UserPlus, path: '/cadastro' },
-  { id: 'anamnesis', label: 'Anamnese', icon: FileText, path: '/anamnese' },
-  { id: 'evolution', label: 'Evolução', icon: History, path: '/evolucao' },
-  { id: 'prescription', label: 'Prescrição', icon: Pill, path: '/prescricao' },
-  { id: 'discharge', label: 'Condições de Alta', icon: LogOut, path: '/alta' },
-  { id: 'report', label: 'Relatório Dental', icon: FileText, path: '/relatorio' },
+  { id: 'patients', label: 'Prontuários', icon: History, path: '/pacientes' },
+  { id: 'registration', label: 'Novo Cadastro', icon: UserPlus, path: '/cadastro' },
+  { id: 'medications', label: 'Medicamentos', icon: Pill, path: '/medicamentos' },
+  { id: 'report', label: 'Relatórios', icon: FileText, path: '/relatorio' },
 ];
 
 export const FOOTER_NAV = [

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, 
   TrendingUp, 
@@ -7,7 +7,8 @@ import {
   ChevronRight, 
   Star,
   ArrowUpRight,
-  ClipboardList
+  ClipboardList,
+  Loader2
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { 
@@ -19,17 +20,11 @@ import {
   Tooltip, 
   ResponsiveContainer, 
   Cell,
-  PieChart,
-  Pie
 } from 'recharts';
+import { collection, getCountFromServer, query, where, Timestamp } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
-const PATIENT_STATS = {
-  diario: 12,
-  semanal: 84,
-  mensal: 342,
-  semestral: 1850,
-  anual: 3600
-};
+import { dataService, Patient } from '../lib/dataService';
 
 const TOP_PROCEDURES = [
   { code: '03.07.02.001-0', name: 'Acesso à Polpa Dentária', count: 145, color: '#4f46e5' },
@@ -47,8 +42,67 @@ const CHART_DATA = [
   { name: 'Dom', pacientes: 4 },
 ];
 
+type Period = 'diario' | 'semanal' | 'mensal' | 'semestral' | 'anual';
+
 export default function Dashboard() {
-  const [selectedPeriod, setSelectedPeriod] = useState<keyof typeof PATIENT_STATS>('mensal');
+  const [selectedPeriod, setSelectedPeriod] = useState<Period>('mensal');
+  const [patientCount, setPatientCount] = useState<number | null>(null);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    async function fetchPatients() {
+      try {
+        const results = await dataService.searchPatients({});
+        setPatients(results || []);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    fetchPatients();
+  }, []);
+
+  useEffect(() => {
+    async function fetchCount() {
+      setLoading(true);
+      try {
+        const now = new Date();
+        let startDate = new Date();
+
+        switch (selectedPeriod) {
+          case 'diario':
+            startDate.setHours(0, 0, 0, 0);
+            break;
+          case 'semanal':
+            startDate.setDate(now.getDate() - 7);
+            break;
+          case 'mensal':
+            startDate.setMonth(now.getMonth() - 1);
+            break;
+          case 'semestral':
+            startDate.setMonth(now.getMonth() - 6);
+            break;
+          case 'anual':
+            startDate.setFullYear(now.getFullYear() - 1);
+            break;
+        }
+
+        const q = query(
+          collection(db, 'patients'),
+          where('createdAt', '>=', Timestamp.fromDate(startDate))
+        );
+        const snapshot = await getCountFromServer(q);
+        setPatientCount(snapshot.data().count);
+      } catch (error) {
+        console.error('Error fetching patient count:', error);
+        setPatientCount(0);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchCount();
+  }, [selectedPeriod]);
 
   return (
     <motion.div 
@@ -62,12 +116,12 @@ export default function Dashboard() {
           <h1 className="text-3xl font-bold text-[#0f172a] tracking-tight">Painel de Controle</h1>
           <p className="text-slate-500 mt-1">Visão geral do desempenho clínico e estatísticas hospitalares.</p>
         </div>
-        <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
-          {(Object.keys(PATIENT_STATS) as Array<keyof typeof PATIENT_STATS>).map((period) => (
+        <div className="flex bg-white p-1 rounded-xl border border-slate-200 shadow-sm overflow-x-auto max-w-full">
+          {(['diario', 'semanal', 'mensal', 'semestral', 'anual'] as Period[]).map((period) => (
             <button
               key={period}
               onClick={() => setSelectedPeriod(period)}
-              className={`px-4 py-2 text-xs font-bold uppercase tracking-wider rounded-lg transition-all ${
+              className={`px-4 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all whitespace-nowrap ${
                 selectedPeriod === period 
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-100' 
                   : 'text-slate-400 hover:text-slate-600'
@@ -86,12 +140,21 @@ export default function Dashboard() {
             <div className="w-12 h-12 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 group-hover:scale-110 transition-transform">
               <Users size={24} />
             </div>
-            <span className="flex items-center text-xs font-bold text-emerald-500 bg-emerald-50 px-2 py-1 rounded-lg">
-              <TrendingUp size={14} className="mr-1" /> +12%
-            </span>
+            {patientCount !== null && patientCount > 0 && (
+              <span className="flex items-center text-xs font-bold text-emerald-500 bg-emerald-50 px-2 py-1 rounded-lg">
+                <TrendingUp size={14} className="mr-1" /> Ativo
+              </span>
+            )}
           </div>
           <p className="text-slate-500 text-sm font-medium">Pacientes Atendidos</p>
-          <h3 className="text-3xl font-black text-[#0f172a] mt-1">{PATIENT_STATS[selectedPeriod]}</h3>
+          <div className="flex items-center gap-2 mt-1">
+            <h3 className="text-3xl font-black text-[#0f172a]">
+              {loading ? <Loader2 className="animate-spin text-slate-300" size={24} /> : (patientCount ?? 0)}
+            </h3>
+            {patientCount === 0 && !loading && (
+              <span className="text-[10px] text-slate-400 font-bold uppercase">(Dados Reais)</span>
+            )}
+          </div>
           <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-4">Total no período {selectedPeriod}</p>
         </div>
 
@@ -119,12 +182,73 @@ export default function Dashboard() {
 
         <div className="bg-[#0f172a] p-6 rounded-2xl shadow-xl shadow-slate-200 relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-indigo-500/20 transition-all" />
-          <p className="text-indigo-400 text-sm font-bold uppercase tracking-widest mb-1 relative z-10">Status do Sistema</p>
-          <h3 className="text-2xl font-bold text-white relative z-10">Operacional</h3>
+          <p className="text-indigo-400 text-sm font-bold uppercase tracking-widest mb-1 relative z-10">Status do Banco</p>
+          <h3 className="text-2xl font-bold text-white relative z-10">Conectado</h3>
           <div className="mt-4 flex items-center gap-2 relative z-10">
             <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_10px_#34d399]" />
-            <span className="text-[10px] text-slate-400 font-black tracking-widest uppercase">Servidores ativos</span>
+            <span className="text-[10px] text-slate-400 font-black tracking-widest uppercase">FireSore Ativo</span>
           </div>
+        </div>
+      </div>
+      
+      {/* Recent Patients */}
+      <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
+        <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
+              <Users size={20} />
+            </div>
+            <h3 className="text-xl font-bold text-[#0f172a] tracking-tight">Pacientes Cadastrados</h3>
+          </div>
+          <a href="/cadastro" className="text-xs font-black text-indigo-600 uppercase tracking-widest hover:underline">+ Novo Paciente</a>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left">
+            <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
+              <tr>
+                <th className="px-8 py-4">Paciente</th>
+                <th className="px-8 py-4">Documento</th>
+                <th className="px-8 py-4">Nascimento</th>
+                <th className="px-8 py-4">Data Cadastro</th>
+                <th className="px-8 py-4 text-right">Ação</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {patients.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-8 py-20 text-center text-slate-400 font-medium italic">
+                    Nenhum paciente cadastrado no sistema.
+                  </td>
+                </tr>
+              ) : (
+                patients.map((p) => (
+                  <tr key={p.id} className="hover:bg-slate-50/50 transition-colors group">
+                    <td className="px-8 py-5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 text-[10px] font-black">
+                          {p.fullName.substring(0, 2)}
+                        </div>
+                        <span className="font-bold text-[#0f172a] group-hover:text-indigo-600 transition-colors">{p.fullName}</span>
+                      </div>
+                    </td>
+                    <td className="px-8 py-5 text-sm font-mono text-slate-500 font-bold">{p.documentId}</td>
+                    <td className="px-8 py-5 text-sm text-slate-600">{p.birthDate}</td>
+                    <td className="px-8 py-5 text-sm text-slate-500">
+                      {p.createdAt ? p.createdAt.toDate().toLocaleDateString('pt-BR') : '--'}
+                    </td>
+                    <td className="px-8 py-5 text-right">
+                      <a 
+                        href={`/prontuario/${p.id}`}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-[10px] font-bold uppercase tracking-widest rounded-lg hover:bg-slate-800 transition-all"
+                      >
+                        Prontuário <ChevronRight size={14} />
+                      </a>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 

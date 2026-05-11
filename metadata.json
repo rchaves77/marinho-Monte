@@ -1,6 +1,6 @@
 {
-  "name": "Hospital Marinho Monte - Sistema de Gestão Hospitalar",
-  "description": "Sistema completo de prontuário eletrônico, anamnese, evolução e gestão de pacientes para o Hospital Dr. Marinho Monte (SESACRE).",
+  "name": "Dr. Manoel Marinho Monte - Gestão Hospitalar",
+  "description": "Sistema avançado de prontuário e gestão clínica para a unidade Dr. Manoel Marinho Monte.",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }

@@ -1,0 +1,97 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+    
+    function getUserProfilePath() {
+      return /databases/$(database)/documents/app_users/$(request.auth.uid);
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'romulochaves77@gmail.com' ||
+        (exists(getUserProfilePath()) && get(getUserProfilePath()).data.role == 'admin' && get(getUserProfilePath()).data.status == 'active')
+      );
+    }
+
+    function hasRole(role) {
+      return isSignedIn() && exists(getUserProfilePath()) && get(getUserProfilePath()).data.role == role && get(getUserProfilePath()).data.status == 'active';
+    }
+
+    function isProfessional() {
+      return hasRole('professional') || isAdmin();
+    }
+
+    function isAdministrative() {
+      return hasRole('administrative') || isProfessional();
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    // --- User Management ---
+    match /app_users/{userId} {
+      // Allow user to see their own status
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      // Admin can list all users
+      allow list: if isAdmin();
+      // First access: user can create their profile. Master admin can create as active.
+      allow create: if isSignedIn() 
+                    && request.auth.uid == userId
+                    && (
+                      (incoming().status == 'pending' && incoming().role in ['professional', 'administrative']) ||
+                      (request.auth.token.email == 'romulochaves77@gmail.com' && incoming().status == 'active' && incoming().role == 'admin')
+                    )
+                    && incoming().email == request.auth.token.email;
+      // Only Admin can update roles or status
+      allow update: if isAdmin() 
+                    && incoming().email == existing().email;
+    }
+
+    // --- Patients ---
+    match /patients/{patientId} {
+      allow get, list: if isAdministrative();
+      allow create: if isProfessional() 
+                    && isValidId(patientId)
+                    && incoming().createdBy == request.auth.uid;
+      allow update: if isProfessional()
+                    && incoming().createdBy == existing().createdBy;
+      allow delete: if isAdmin();
+      
+      match /clinical_records/{recordId} {
+        allow get, list: if isAdministrative();
+        allow create: if isProfessional()
+                      && isValidId(recordId)
+                      && incoming().createdBy == request.auth.uid;
+        allow delete: if isAdmin();
+      }
+    }
+
+    // --- Templates ---
+    match /templates/{templateId} {
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isProfessional() && (incoming().userId == request.auth.uid || isAdmin());
+      allow update: if isProfessional() && existing().userId == request.auth.uid;
+      allow delete: if isProfessional() && existing().userId == request.auth.uid;
+    }
+
+    // --- Medications ---
+    match /medications/{medicationId} {
+      allow list, get: if isAdministrative();
+      allow create, update, delete: if isProfessional();
+    }
+  }
+}

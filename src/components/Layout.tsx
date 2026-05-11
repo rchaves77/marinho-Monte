@@ -5,18 +5,34 @@ import {
   Search, 
   UserCircle,
   Menu,
-  X
+  X,
+  LogIn,
+  LogOut,
+  ShieldCheck
 } from 'lucide-react';
 import { NAV_ITEMS, FOOTER_NAV, COLORS } from '../constants';
 import { motion, AnimatePresence } from 'motion/react';
+import { useAuth } from '../lib/AuthContext';
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
 export default function Layout({ children }: LayoutProps) {
+  const { user, profile, signIn, signOut, toggleRole, isOverrideActive } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
   const location = useLocation();
+
+  // Define menu items based on role
+  const filteredNavItems = NAV_ITEMS.filter(item => {
+    if (!profile) return false;
+    if (profile.role === 'admin') return true;
+    if (profile.role === 'professional') return true;
+    if (profile.role === 'administrative') {
+      return item.path === '/' || item.path === '/relatorio';
+    }
+    return false;
+  });
 
   return (
     <div className="min-h-screen bg-[#f8fafc] font-sans text-[#0f172a]">
@@ -52,28 +68,85 @@ export default function Layout({ children }: LayoutProps) {
               <Bell size={20} className="text-[#475569]" />
               <span className="absolute top-2 right-2 w-2 h-2 bg-indigo-600 rounded-full border-2 border-white"></span>
             </button>
-            <div className="flex items-center gap-3 cursor-pointer hover:bg-slate-100 py-1.5 px-2 rounded-xl transition-all border border-transparent hover:border-slate-200">
-              <div className="w-8 h-8 rounded-full bg-slate-200 border border-slate-300 overflow-hidden flex items-center justify-center">
-                <UserCircle size={28} className="text-slate-500" />
+            
+            {user ? (
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 cursor-pointer hover:bg-slate-100 py-1.5 px-2 rounded-xl transition-all border border-transparent hover:border-slate-200">
+                  <div className="w-8 h-8 rounded-full bg-slate-200 border border-slate-300 overflow-hidden flex items-center justify-center shadow-inner">
+                    {user.photoURL ? (
+                      <img src={user.photoURL} alt={user.displayName || ''} className="w-full h-full object-cover" />
+                    ) : (
+                      <UserCircle size={28} className="text-slate-500" />
+                    )}
+                  </div>
+                  <div className="hidden sm:block text-left">
+                    <p className="text-sm font-semibold text-[#0f172a] leading-none">{user.displayName || 'Médico'}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className={`text-[8px] font-black uppercase tracking-widest ${isOverrideActive ? 'text-amber-500' : 'text-indigo-500'}`}>
+                        {profile?.role} {isOverrideActive && '(Override)'}
+                      </p>
+                      {user.email === 'romulochaves77@gmail.com' && (
+                        <button 
+                          onClick={(e) => {
+                             e.stopPropagation();
+                             toggleRole();
+                          }}
+                          className="text-[7px] font-black uppercase bg-slate-100 hover:bg-slate-200 px-1 rounded transition-colors text-slate-500"
+                        >
+                          Trocar
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <button 
+                  onClick={signOut}
+                  className="p-2 text-slate-400 hover:text-rose-500 transition-colors"
+                  title="Sair"
+                >
+                  <LogOut size={20} />
+                </button>
               </div>
-              <span className="hidden sm:inline text-sm font-semibold text-[#0f172a]">Dr. Profissional</span>
-            </div>
+            ) : (
+              <button 
+                onClick={signIn}
+                className="flex items-center gap-2 bg-[#4f46e5] text-white px-4 py-2 rounded-lg text-sm font-bold shadow-md shadow-indigo-100 hover:bg-[#4338ca] transition-all"
+              >
+                <LogIn size={18} />
+                Acessar
+              </button>
+            )}
           </div>
         </div>
       </header>
 
+      {/* Mobile Backdrop */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsSidebarOpen(false)}
+            className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-30 lg:hidden"
+          />
+        )}
+      </AnimatePresence>
+
       {/* Sidebar */}
       <aside 
         className={`fixed left-0 top-0 h-full bg-white border-r border-[#e2e8f0] z-40 transition-all duration-300 
-          ${isSidebarOpen ? 'w-64' : 'w-0 lg:w-20'}
-          pt-16 pb-6 flex flex-col shadow-[1px_0_0_rgb(0,0,0,0.02)]`}
+          ${isSidebarOpen 
+            ? 'w-64 translate-x-0' 
+            : '-translate-x-full lg:translate-x-0 lg:w-20'}
+          pt-16 pb-6 flex flex-col shadow-[1px_0_0_rgb(0,0,0,0.02)] overflow-hidden`}
       >
-        <div className="px-8 mt-8 mb-6 whitespace-nowrap overflow-hidden shrink-0">
+        <div className={`px-8 mt-8 mb-6 whitespace-nowrap overflow-hidden shrink-0 transition-opacity duration-300 ${!isSidebarOpen && 'lg:opacity-0 lg:hidden'}`}>
           <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Navegação</div>
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto px-4 hide-scrollbar">
-          {NAV_ITEMS.map((item) => {
+          {filteredNavItems.map((item) => {
             const isActive = location.pathname === item.path;
             return (
               <Link 
@@ -98,10 +171,29 @@ export default function Layout({ children }: LayoutProps) {
               </Link>
             )
           })}
+          
+          {/* Admin Tools */}
+          {profile?.role === 'admin' && (
+             <div className="pt-4 border-t border-slate-100 mt-4">
+                <Link 
+                  to="/admin/usuarios"
+                  className={`flex items-center gap-3 py-2.5 px-4 transition-all rounded-lg font-medium group
+                    ${location.pathname === '/admin/usuarios' 
+                      ? 'bg-[#0f172a] text-white' 
+                      : 'text-[#475569] hover:bg-slate-50 hover:text-[#0f172a]'}`}
+                >
+                  <ShieldCheck size={20} className={location.pathname === '/admin/usuarios' ? 'text-white' : 'text-slate-400 group-hover:text-slate-600'} />
+                  <span className={`text-sm whitespace-nowrap transition-all duration-300
+                    ${!isSidebarOpen && 'lg:opacity-0 lg:hidden'}`}>
+                    Gerir Usuários
+                  </span>
+                </Link>
+             </div>
+          )}
         </nav>
 
-        <div className="mt-auto px-4 space-y-1">
-          <div className="px-4 py-2">
+        <div className="mt-auto px-4 space-y-1 overflow-hidden">
+          <div className={`px-4 py-2 transition-all duration-300 ${!isSidebarOpen ? 'lg:opacity-0 lg:invisible lg:h-0 overflow-hidden' : 'opacity-100 h-auto'}`}>
             <div className="bg-slate-900 text-white p-4 rounded-xl shadow-lg relative overflow-hidden group">
               <div className="absolute top-0 right-0 w-24 h-24 bg-indigo-500/10 rounded-full -mr-8 -mt-8 blur-2xl group-hover:bg-indigo-500/20 transition-all" />
               <p className="text-[10px] font-bold opacity-60 tracking-wider">SISTEMA v2.4</p>

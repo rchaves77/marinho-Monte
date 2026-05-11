@@ -1,0 +1,89 @@
+{
+  "entities": {
+    "Patient": {
+      "title": "Patient",
+      "description": "Core identity and contact data for a patient.",
+      "type": "object",
+      "properties": {
+        "fullName": { "type": "string" },
+        "birthDate": { "type": "string", "format": "date" },
+        "gender": { "type": "string", "enum": ["Masculino", "Feminino", "Outro"] },
+        "documentId": { "type": "string" },
+        "address": {
+          "type": "object",
+          "properties": {
+            "street": { "type": "string" },
+            "number": { "type": "string" },
+            "neighborhood": { "type": "string" },
+            "city": { "type": "string" },
+            "state": { "type": "string" }
+          }
+        },
+        "companionName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["fullName", "birthDate", "documentId", "createdBy"]
+    },
+    "ClinicalRecord": {
+      "title": "Clinical Record",
+      "description": "Any clinical event recorded for a patient (anamnesis, evolution, etc).",
+      "type": "object",
+      "properties": {
+        "patientId": { "type": "string" },
+        "type": { "type": "string", "enum": ["anamnesis", "evolution", "prescription", "discharge"] },
+        "data": { "type": "object" },
+        "professionalName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["patientId", "type", "data", "createdBy"]
+    },
+    "AppUser": {
+      "title": "App User",
+      "description": "User profile within the system for RBAC.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "professional", "administrative"] },
+        "status": { "type": "string", "enum": ["pending", "active", "revoked"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "role", "status"]
+    },
+    "Medication": {
+      "title": "Medication",
+      "description": "Catalog of medications for dentistry prescriptions.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "category": { "type": "string", "enum": ["Antibiótico", "Anti-inflamatório", "Corticóide", "Opioide", "Anestésico", "Outros"] },
+        "defaultQuantity": { "type": "string" },
+        "defaultPosology": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["name", "category", "defaultQuantity", "defaultPosology"]
+    }
+  },
+  "firestore": {
+    "/app_users/{userId}": {
+      "schema": "AppUser",
+      "description": "User permissions and roles."
+    },
+    "/patients/{patientId}": {
+      "schema": "Patient",
+      "description": "Root collection for patient profiles."
+    },
+    "/patients/{patientId}/clinical_records/{recordId}": {
+      "schema": "ClinicalRecord",
+      "description": "Chronological clinical events for a specific patient."
+    },
+    "/medications/{medicationId}": {
+      "schema": "Medication",
+      "description": "Global catalog of medications."
+    }
+  }
+}

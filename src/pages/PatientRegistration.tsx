@@ -176,8 +176,8 @@ export default function PatientRegistration() {
       return;
     }
 
-    if (!formData.fullName || !formData.motherName || !formData.birthDate || !formData.documentId) {
-      setError('Por favor, preencha os campos obrigatórios (Nome, Nome da Mãe, Data de Nasc. e CPF).');
+    if (!formData.fullName || !formData.motherName || !formData.birthDate) {
+      setError('Por favor, preencha os campos obrigatórios (Nome, Nome da Mãe, Data de Nasc.).');
       return;
     }
 
@@ -189,8 +189,37 @@ export default function PatientRegistration() {
         createdBy: user.uid
       };
       
+      // Save/Update current Patient chart details
       const finalId = await dataService.savePatient(payload) as string;
       
+      // Generate a unique daily attendance number for the database (Atendimento)
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
+      const currentDay = String(now.getDate()).padStart(2, '0');
+      const randomSeq = Math.floor(1000 + Math.random() * 9000);
+      const attendanceNumber = `AT-${currentYear}${currentMonth}${currentDay}-${randomSeq}`;
+
+      // Save a new historical Attendance / Visit record snapshot
+      await dataService.saveClinicalRecord({
+        patientId: finalId,
+        type: 'atendimento' as any,
+        professionalName: user.displayName || 'Recepção / Triagem',
+        createdBy: user.uid,
+        createdAt: now,
+        data: {
+          attendanceNumber,
+          fullName: formData.fullName || '',
+          motherName: formData.motherName || '',
+          birthDate: formData.birthDate || '',
+          documentId: formData.documentId || '',
+          susCard: formData.susCard || '',
+          phone: formData.phone || '',
+          address: formData.address || { street: '', number: '', neighborhood: '', city: 'Rio Branco', state: 'AC' },
+          companionName: formData.companionName || '',
+        }
+      });
+
       setSuccess(true);
       // Store current patient in localStorage for the workflow
       if (finalId) {
@@ -202,7 +231,7 @@ export default function PatientRegistration() {
         window.location.href = `/prontuario/${finalId}`;
       }, 1500);
     } catch (err) {
-      setError('Erro ao salvar paciente.');
+      setError('Erro ao salvar paciente e gerar ficha de atendimento.');
       console.error(err);
     } finally {
       setSaving(false);
@@ -425,7 +454,7 @@ export default function PatientRegistration() {
               </div>
 
               <div className="md:col-span-1">
-                <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">CPF *</label>
+                <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">CPF (Opcional)</label>
                 <input 
                   type="text" 
                   value={formData.documentId || ''}

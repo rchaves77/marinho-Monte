@@ -55,6 +55,8 @@ export default function MedicalRecord() {
   const [isEditingClinicalAlerts, setIsEditingClinicalAlerts] = useState(false);
   const [alergyInput, setAlergyInput] = useState('');
   const [comorbidityInput, setComorbidityInput] = useState('');
+  const [selectedComorbidities, setSelectedComorbidities] = useState<string[]>([]);
+  const [otherComorbiditiesInput, setOtherComorbiditiesInput] = useState('');
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
   const [editingRecordDate, setEditingRecordDate] = useState<string>('');
   const [attendanceDate, setAttendanceDate] = useState<string>(() => {
@@ -65,6 +67,8 @@ export default function MedicalRecord() {
   const [dentistsList, setDentistsList] = useState<Dentist[]>([]);
   const [selectedDentist, setSelectedDentist] = useState<string>('');
   const navigate = useNavigate();
+  const [printRecord, setPrintRecord] = useState<any | null>(null);
+  const [prescriptionDraftList, setPrescriptionDraftList] = useState<Array<{medicationName: string, dosage: string, instructions: string}>>([]);
 
   // Form States
   const [anamnesisForm, setAnamnesisForm] = useState({
@@ -195,16 +199,41 @@ export default function MedicalRecord() {
     }
   };
 
+  const openClinicalAlertsModal = () => {
+    if (!patient) return;
+    setAlergyInput(patient.allergies || '');
+    
+    // Parse patient comorbidities
+    const currentComorb = patient.comorbidities || '';
+    const parts = currentComorb.split(',').map(s => s.trim()).filter(Boolean);
+    const COMMON_COMORBIDITIES = ['HAS', 'Diabetes', 'ICC', 'Insuficiência Renal', 'DPOC', 'Sequela AVC'];
+    
+    const selected = parts.filter(p => COMMON_COMORBIDITIES.includes(p));
+    const others = parts.filter(p => !COMMON_COMORBIDITIES.includes(p)).join(', ');
+    
+    setSelectedComorbidities(selected);
+    setOtherComorbiditiesInput(others);
+    setComorbidityInput(currentComorb);
+    setIsEditingClinicalAlerts(true);
+  };
+
   const handleSaveClinicalAlerts = async () => {
     if (!patient || !user) return;
     setSaving(true);
+
+    const comorbParts = [...selectedComorbidities];
+    if (otherComorbiditiesInput.trim()) {
+      comorbParts.push(otherComorbiditiesInput.trim());
+    }
+    const combinedComorbidities = comorbParts.join(', ');
+
     try {
       await dataService.savePatient({
         ...patient,
         allergies: alergyInput,
-        comorbidities: comorbidityInput
+        comorbidities: combinedComorbidities
       } as any);
-      setPatient(prev => prev ? { ...prev, allergies: alergyInput, comorbidities: comorbidityInput } : null);
+      setPatient(prev => prev ? { ...prev, allergies: alergyInput, comorbidities: combinedComorbidities } : null);
       setIsEditingClinicalAlerts(false);
       setSuccess(true);
       setTimeout(() => setSuccess(false), 2000);
@@ -214,6 +243,19 @@ export default function MedicalRecord() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const addMedicationToDraft = () => {
+    if (!prescriptionForm.medicationName) return;
+    setPrescriptionDraftList(prev => [
+      ...prev,
+      {
+        medicationName: prescriptionForm.medicationName,
+        dosage: prescriptionForm.dosage,
+        instructions: prescriptionForm.instructions
+      }
+    ]);
+    setPrescriptionForm({ medicationName: '', dosage: '', instructions: '' });
   };
 
   const handleSaveRecord = async (tabType: TabType, data: any) => {
@@ -236,6 +278,29 @@ export default function MedicalRecord() {
         professionalName: selectedDentist || user.displayName || 'Profissional',
         createdAt: new Date(attendanceDate)
       });
+
+      // If saving an anamnese, also sync it directly to patient's comorbidities and allergies!
+      if (tabType === 'anamnese') {
+        const comorbParts = [...(data.generalHealth?.comorbidities || [])];
+        if (data.generalHealth?.otherComorbidities?.trim()) {
+          comorbParts.push(data.generalHealth.otherComorbidities.trim());
+        }
+        const combined = comorbParts.join(', ');
+        const allergyVal = (data.generalHealth?.foodAllergy?.value === 'Sim') ? (data.generalHealth?.foodAllergy?.detail || '') : '';
+
+        await dataService.savePatient({
+          ...patient,
+          allergies: allergyVal || patient.allergies || '',
+          comorbidities: combined || patient.comorbidities || ''
+        } as any);
+
+        setPatient(prev => prev ? {
+          ...prev,
+          allergies: allergyVal || prev.allergies || '',
+          comorbidities: combined || prev.comorbidities || ''
+        } : null);
+      }
+
       setSuccess(true);
       await loadData(id); // Reload timeline
       setTimeout(() => setSuccess(false), 2000);
@@ -250,7 +315,10 @@ export default function MedicalRecord() {
         setEvolutionText('');
         setSelectedProcedures([]);
       }
-      if (tabType === 'prescricao') setPrescriptionForm({ medicationName: '', dosage: '', instructions: '' });
+      if (tabType === 'prescricao') {
+        setPrescriptionForm({ medicationName: '', dosage: '', instructions: '' });
+        setPrescriptionDraftList([]);
+      }
       
       setActiveTab('resumo');
     } catch (err) {
@@ -329,6 +397,22 @@ export default function MedicalRecord() {
     }
   };
 
+  const getRecordTimestampMs = (record: ClinicalRecord) => {
+    if (!record.createdAt) return 0;
+    if (typeof record.createdAt.toDate === 'function') {
+      return record.createdAt.toDate().getTime();
+    }
+    if (record.createdAt.seconds) {
+      return record.createdAt.seconds * 1000;
+    }
+    return new Date(record.createdAt).getTime();
+  };
+
+  const evolutionsWithProcedures = [...records]
+    .filter(r => r.type === 'evolution')
+    .sort((a, b) => getRecordTimestampMs(b) - getRecordTimestampMs(a))
+    .slice(0, 3);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -347,7 +431,8 @@ export default function MedicalRecord() {
   }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8 pb-32">
+    <>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="print:hidden space-y-8 pb-32">
       {/* Patient Header Card */}
       <section className="bg-white border border-slate-200 p-6 md:p-8 rounded-[2rem] shadow-sm relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50/50 rounded-full -mr-32 -mt-32 blur-3xl" />
@@ -398,11 +483,7 @@ export default function MedicalRecord() {
               {patient.allergies ? (
                 <button
                   type="button"
-                  onClick={() => {
-                    setAlergyInput(patient.allergies || '');
-                    setComorbidityInput(patient.comorbidities || '');
-                    setIsEditingClinicalAlerts(true);
-                  }}
+                  onClick={openClinicalAlertsModal}
                   className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-red-50 border border-red-200 text-red-700 font-extrabold text-[10px] uppercase tracking-wider hover:bg-red-100 transition-all shadow-sm shrink-0"
                 >
                   <span className="w-2 h-2 rounded-full bg-red-500 inline-block animate-pulse shrink-0" />
@@ -411,11 +492,7 @@ export default function MedicalRecord() {
               ) : (
                 <button
                   type="button"
-                  onClick={() => {
-                    setAlergyInput(patient.allergies || '');
-                    setComorbidityInput(patient.comorbidities || '');
-                    setIsEditingClinicalAlerts(true);
-                  }}
+                  onClick={openClinicalAlertsModal}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-400 font-bold text-[10px] hover:bg-slate-100 hover:text-slate-600 transition-all border-dashed uppercase tracking-wider shrink-0"
                 >
                   <span>⚠️ Cadastrar Alergias</span>
@@ -425,11 +502,7 @@ export default function MedicalRecord() {
               {patient.comorbidities ? (
                 <button
                   type="button"
-                  onClick={() => {
-                    setAlergyInput(patient.allergies || '');
-                    setComorbidityInput(patient.comorbidities || '');
-                    setIsEditingClinicalAlerts(true);
-                  }}
+                  onClick={openClinicalAlertsModal}
                   className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-850 font-extrabold text-[10px] uppercase tracking-wider hover:bg-amber-100 transition-all shadow-sm shrink-0"
                 >
                   <span className="w-2 h-2 rounded-full bg-amber-500 inline-block shrink-0" />
@@ -438,11 +511,7 @@ export default function MedicalRecord() {
               ) : (
                 <button
                   type="button"
-                  onClick={() => {
-                    setAlergyInput(patient.allergies || '');
-                    setComorbidityInput(patient.comorbidities || '');
-                    setIsEditingClinicalAlerts(true);
-                  }}
+                  onClick={openClinicalAlertsModal}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-400 font-bold text-[10px] hover:bg-slate-100 hover:text-slate-600 transition-all border-dashed uppercase tracking-wider shrink-0"
                 >
                   <span>🩺 Cadastrar Comorbidades</span>
@@ -662,7 +731,8 @@ export default function MedicalRecord() {
                             <div className="w-10 h-10 rounded-xl bg-slate-50 text-indigo-600 flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-all">
                               {record.type === 'anamnesis' ? <ClipboardList size={18} /> : 
                                record.type === 'evolution' ? <History size={18} /> :
-                               record.type === 'prescription' ? <Pill size={18} /> : <LogOut size={18} />}
+                               record.type === 'prescription' ? <Pill size={18} /> : 
+                               record.type === 'atendimento' ? <UserCheck size={18} /> : <LogOut size={18} />}
                             </div>
                             <div>
                               {editingRecordId === record.id ? (
@@ -722,9 +792,53 @@ export default function MedicalRecord() {
                                   </button>
                                 </div>
                               )}
-                              <h4 className="font-bold text-slate-800 uppercase text-xs mb-3">{record.type.replace('anamnesis', 'Anamnese').replace('evolution', 'Evolução').replace('prescription', 'Prescrição').replace('discharge', 'Alta')}</h4>
+                              <h4 className="font-bold text-slate-800 uppercase text-xs mb-3">
+                                {record.type === 'anamnesis' ? 'Anamnese' :
+                                 record.type === 'evolution' ? 'Evolução' :
+                                 record.type === 'prescription' ? 'Prescrição / Receita' :
+                                 record.type === 'atendimento' ? 'Abertura de Atendimento' : 'Alta / Desfecho'}
+                              </h4>
                               
                               <div className="text-sm text-slate-600 leading-relaxed max-w-2xl">
+                                {record.type === 'atendimento' && (
+                                  <div className="space-y-4 bg-indigo-50/30 border border-indigo-100/60 rounded-2xl p-5 mt-2">
+                                    <div className="flex items-center justify-between">
+                                      <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest bg-indigo-100 text-indigo-700 font-mono border border-indigo-200">
+                                        Ficha do Atendimento • {record.data?.attendanceNumber || '---'}
+                                      </span>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 mt-3 text-xs text-slate-600 font-medium">
+                                      <div>
+                                        <span className="block text-[8px] font-black uppercase text-slate-400 tracking-wider">Paciente no Atendimento</span>
+                                        <p className="font-extrabold text-slate-800 text-[13px]">{record.data?.fullName || '---'}</p>
+                                      </div>
+                                      <div>
+                                        <span className="block text-[8px] font-black uppercase text-slate-400 tracking-wider">Acompanhante no Dia</span>
+                                        <p className="font-extrabold text-indigo-700 text-[13px]">{record.data?.companionName || 'Sem acompanhante relatado'}</p>
+                                      </div>
+                                      {record.data?.phone && (
+                                        <div>
+                                          <span className="block text-[8px] font-black uppercase text-slate-400 tracking-wider">Contato</span>
+                                          <p className="font-bold text-slate-800 font-mono">{record.data.phone}</p>
+                                        </div>
+                                      )}
+                                      {record.data?.susCard && (
+                                        <div>
+                                          <span className="block text-[8px] font-black uppercase text-slate-400 tracking-wider">CNS SUS</span>
+                                          <p className="font-bold text-slate-800 font-mono">{record.data.susCard}</p>
+                                        </div>
+                                      )}
+                                      {record.data?.address && (
+                                        <div className="sm:col-span-2 pt-2 border-t border-slate-200/50">
+                                          <span className="block text-[8px] font-black uppercase text-slate-400 tracking-wider font-bold">Endereço no dia</span>
+                                          <p className="text-slate-750 text-[11px] leading-relaxed">
+                                            {record.data.address.street || ''}{record.data.address.number ? `, Nº ${record.data.address.number}` : ''} • {record.data.address.neighborhood || ''} • {record.data.address.city || ''}/{record.data.address.state || ''}
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
                                 {record.type === 'evolution' && (
                                   <div className="space-y-3">
                                     <p className="text-slate-700 whitespace-pre-wrap">{record.data.text}</p>
@@ -747,7 +861,38 @@ export default function MedicalRecord() {
                                     )}
                                   </div>
                                 )}
-                                {record.type === 'prescription' && <span>{record.data.medicationName} - {record.data.dosage}</span>}
+                                {record.type === 'prescription' && (
+                                  <div className="space-y-3">
+                                    <div className="flex items-center justify-between">
+                                      <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Medicamentos Receitados: </p>
+                                      <button
+                                        onClick={() => {
+                                          setPrintRecord(record);
+                                          setTimeout(() => { window.print(); }, 200);
+                                        }}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-50 hover:bg-indigo-100 border border-indigo-150 rounded-xl text-[10px] font-extrabold uppercase text-indigo-700 tracking-wider shadow-sm transition-all"
+                                      >
+                                        <Printer size={11} /> Re-imprimir Receita
+                                      </button>
+                                    </div>
+                                    <div className="space-y-2.5 mt-2 bg-slate-50 rounded-xl p-3 border border-slate-150">
+                                      {(record.data.items || [record.data]).map((item: any, idx: number) => (
+                                        <div key={idx} className="flex gap-3 text-xs py-2 border-b border-slate-150/50 last:border-0">
+                                          <div className="w-5 h-5 rounded-lg bg-indigo-100 text-indigo-700 border border-indigo-200 flex items-center justify-center font-black text-[10px] shrink-0">
+                                            {idx + 1}
+                                          </div>
+                                          <div className="min-w-0 flex-1">
+                                            <p className="font-extrabold text-slate-800 uppercase text-[11px] leading-tight">{item.medicationName || item.medicationName}</p>
+                                            <p className="text-[10px] text-slate-500 font-bold mt-0.5">Dosagem / Posologia: {item.dosage || item.dosage}</p>
+                                            {item.instructions && (
+                                              <p className="text-[10px] text-slate-500 italic mt-0.5">Orientações: {item.instructions}</p>
+                                            )}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
                                 {record.type === 'anamnesis' && (
                                   <div className="space-y-1">
                                     <p>Anamnese Completa Registrada</p>
@@ -800,6 +945,63 @@ export default function MedicalRecord() {
                             <p className="font-bold text-sm">Dr. Manoel Marinho Monte</p>
                         </div>
                     </div>
+                 </div>
+
+                 {/* Tabela Resumo de Procedimentos realizados nos últimos 3 atendimentos */}
+                 <div className="bg-white border border-slate-200 rounded-[2rem] p-6 shadow-sm space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div>
+                      <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-600">Histórico de Procedimentos</h4>
+                      <p className="text-[11px] font-bold text-slate-400">Últimos 3 atendimentos de referência</p>
+                    </div>
+                    <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse shrink-0" />
+                  </div>
+
+                  {evolutionsWithProcedures.length === 0 ? (
+                    <div className="text-center py-6 text-slate-400">
+                      <Stethoscope className="mx-auto text-slate-200 mb-2" size={24} />
+                      <p className="text-xs font-bold text-slate-500">Nenhum atendimento registrado ainda</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {evolutionsWithProcedures.map((evo, idx) => {
+                        const evoDate = evo.createdAt?.toDate 
+                          ? evo.createdAt.toDate().toLocaleDateString('pt-BR') 
+                          : new Date(evo.createdAt).toLocaleDateString('pt-BR');
+                        const hasProcs = evo.data?.procedures && evo.data.procedures.length > 0;
+                        
+                        return (
+                          <div key={evo.id || idx} className="space-y-2 pb-3 border-b border-slate-100 last:border-0 last:pb-0">
+                            <div className="flex items-center justify-between text-[11px] font-bold">
+                              <span className="text-slate-800 flex items-center gap-1 font-mono">
+                                <Calendar size={12} className="text-indigo-500 shrink-0" /> {evoDate}
+                              </span>
+                              <span className="text-[9px] font-black uppercase text-indigo-600 bg-indigo-50 border border-indigo-100/40 px-2.5 py-0.5 rounded max-w-[120px] truncate" title={evo.professionalName}>
+                                {evo.professionalName || "Profissional"}
+                              </span>
+                            </div>
+
+                            {!hasProcs ? (
+                              <p className="text-[10px] text-slate-400 italic font-medium">Nenhum código SIGTAP nesse dia.</p>
+                            ) : (
+                              <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-100 space-y-1.5/2">
+                                {evo.data.procedures.map((proc: any, pIdx: number) => (
+                                  <div key={pIdx} className="flex gap-2 text-[10px] items-start pt-1.5 first:pt-0">
+                                    <span className="font-mono text-[9px] bg-indigo-100 text-indigo-700 px-1 py-0.5 rounded font-black shrink-0">
+                                      {proc.code}
+                                    </span>
+                                    <span className="font-bold text-slate-700 uppercase tracking-tight leading-tight">
+                                      {proc.name}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                  </div>
               </div>
             </div>
@@ -1365,6 +1567,51 @@ export default function MedicalRecord() {
                   />
                 </div>
               </div>
+              
+              {/* Draft list display if any medication is in the draft list right now */}
+              {prescriptionDraftList.length > 0 && (
+                <div className="space-y-4 bg-slate-800/40 rounded-[1.5rem] p-6 border border-white/5">
+                  <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                    <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-1.5">
+                      <Pill size={14} className="text-indigo-400 animate-pulse" /> Medicamentos na Receita atual ({prescriptionDraftList.length})
+                    </span>
+                    <button 
+                      type="button"
+                      onClick={() => setPrescriptionDraftList([])} 
+                      className="text-[9px] font-black text-rose-400 hover:text-rose-300 uppercase tracking-widest bg-rose-500/10 px-2.5 py-1 rounded-lg"
+                    >
+                      Limpar Lista
+                    </button>
+                  </div>
+                  <div className="divide-y divide-white/5 space-y-3.5">
+                    {prescriptionDraftList.map((item, idx) => (
+                      <div key={idx} className="flex items-start justify-between py-2 gap-4">
+                        <div className="flex gap-3">
+                          <span className="w-5 h-5 rounded-lg bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center justify-center text-[10px] font-black shrink-0">
+                            {idx + 1}
+                          </span>
+                          <div>
+                            <p className="text-sm font-black text-white uppercase">{item.medicationName}</p>
+                            <p className="text-[11px] text-slate-400 font-bold mt-0.5">Dosagem: {item.dosage || 'Não especificada'}</p>
+                            {item.instructions && (
+                              <p className="text-[10px] text-slate-400 italic mt-0.5">Instruções: {item.instructions}</p>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPrescriptionDraftList(prev => prev.filter((_, i) => i !== idx))}
+                          className="p-1 hover:bg-white/5 rounded text-rose-400 hover:text-rose-300 transition-all shrink-0"
+                          title="Remover este medicamento"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Orientações Adicionais</label>
                 <textarea 
@@ -1375,9 +1622,57 @@ export default function MedicalRecord() {
                   className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder:text-slate-600 outline-none focus:ring-2 focus:ring-indigo-500 transition-all resize-none"
                 />
               </div>
-              <div className="flex justify-end">
-                <button onClick={() => handleSaveRecord('prescricao', prescriptionForm)} disabled={saving || !prescriptionForm.medicationName} className="px-12 py-5 bg-indigo-600 text-white rounded-[2rem] text-[11px] font-black uppercase tracking-[0.2em] shadow-2xl shadow-indigo-500/20 flex items-center gap-3 hover:bg-indigo-700 transition-all active:scale-95">
-                   {saving ? <Loader2 size={18} className="animate-spin" /> : <Printer size={18} />} Salvar e Imprimir Prescrição
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button 
+                  type="button" 
+                  onClick={addMedicationToDraft} 
+                  disabled={!prescriptionForm.medicationName} 
+                  className="px-6 py-4 bg-slate-800 text-indigo-300 font-black text-[10px] uppercase tracking-widest rounded-[2rem] hover:bg-slate-700 hover:text-white transition-all disabled:opacity-50 flex items-center justify-center gap-2 border border-slate-700 active:scale-95"
+                >
+                  <Plus size={14} /> Adicionar à Receita
+                </button>
+                <button 
+                  onClick={async () => {
+                    let finalItems = [...prescriptionDraftList];
+                    if (prescriptionForm.medicationName) {
+                      finalItems.push({
+                        medicationName: prescriptionForm.medicationName,
+                        dosage: prescriptionForm.dosage,
+                        instructions: prescriptionForm.instructions
+                      });
+                    }
+                    if (finalItems.length === 0) {
+                      alert('Por favor, digite ou adicione ao menos um medicamento.');
+                      return;
+                    }
+                    
+                    const pData = {
+                      items: finalItems,
+                      medicationName: finalItems[0].medicationName,
+                      dosage: finalItems[0].dosage,
+                      instructions: finalItems[0].instructions
+                    };
+                    
+                    await handleSaveRecord('prescricao', pData);
+                    
+                    // Reset standard states
+                    setPrescriptionDraftList([]);
+                    setPrescriptionForm({ medicationName: '', dosage: '', instructions: '' });
+
+                    const printFriendlyRecord: any = {
+                      patientId: patient?.id || '',
+                      type: 'prescription',
+                      data: pData,
+                      professionalName: selectedDentist || user?.displayName || 'Cirurgião-Dentista',
+                      createdBy: user?.uid || '',
+                      createdAt: new Date()
+                    };
+                    setPrintRecord(printFriendlyRecord);
+                    setTimeout(() => { window.print(); }, 250);
+                  }} 
+                  className="px-8 py-4 bg-indigo-600 text-white rounded-[2rem] text-[10px] font-black uppercase tracking-widest shadow-2xl shadow-indigo-500/20 flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all active:scale-95"
+                >
+                  <Printer size={16} /> Salvar e Imprimir Receita
                 </button>
               </div>
             </div>
@@ -1486,11 +1781,38 @@ export default function MedicalRecord() {
 
                 <div>
                   <label className="text-[10px] font-black text-amber-600 uppercase tracking-widest block mb-2">🩺 Comorbidades Crônicas</label>
+                  
+                  {/* Quick Select Buttons */}
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    {['HAS', 'Diabetes', 'ICC', 'Insuficiência Renal', 'DPOC', 'Sequela AVC'].map(item => {
+                      const isSelected = selectedComorbidities.includes(item);
+                      return (
+                        <button
+                          key={item}
+                          type="button"
+                          onClick={() => {
+                            setSelectedComorbidities(prev => 
+                              prev.includes(item) ? prev.filter(c => c !== item) : [...prev, item]
+                            );
+                          }}
+                          className={`px-3 py-2.5 rounded-xl text-[10px] font-bold text-left border transition-all flex items-center justify-between ${
+                            isSelected 
+                              ? 'bg-amber-50 border-amber-300 text-amber-800 font-extrabold ring-1 ring-amber-300 shadow-sm' 
+                              : 'bg-slate-50 border-slate-200 text-slate-550 hover:bg-slate-100 hover:border-slate-350'
+                          }`}
+                        >
+                          <span>{item}</span>
+                          {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+
                   <input 
                     type="text" 
-                    value={comorbidityInput}
-                    onChange={(e) => setComorbidityInput(e.target.value)}
-                    placeholder="Ex: Diabetes II, HAS, Asma Crônica (ou deixe vazio)"
+                    value={otherComorbiditiesInput}
+                    onChange={(e) => setOtherComorbiditiesInput(e.target.value)}
+                    placeholder="Outras comorbidades... (ou deixe vazio)"
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none transition-all placeholder:text-slate-300 text-slate-800 font-medium"
                   />
                   <span className="text-[9px] text-amber-600 font-bold mt-1 block">Aparecerá como alerta âmbar destacado no prontuário.</span>
@@ -1540,5 +1862,60 @@ export default function MedicalRecord() {
         )}
       </AnimatePresence>
     </motion.div>
-  );
+
+    {/* 🧾 LAYOUT DE IMPRESSÃO DA RECEITA */}
+    {printRecord && (
+      <div className="hidden print:block font-sans bg-white text-black p-12 min-h-screen relative">
+        {/* Clinic Header / Logo */}
+        <div className="text-center border-b-2 border-slate-950 pb-6 mb-8">
+          <h1 className="text-3xl font-extrabold uppercase tracking-wider text-slate-950">Consultório Odontológico</h1>
+          <p className="text-xs font-black text-slate-500 uppercase tracking-widest mt-1">Especialidades Odontológicas Integradas</p>
+        </div>
+
+        {/* Patient Details */}
+        <div className="grid grid-cols-2 gap-4 text-xs mb-8 bg-slate-50 p-4 rounded-xl border border-slate-200">
+          <div>
+            <p className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Paciente</p>
+            <p className="font-extrabold text-slate-950 text-sm">{patient?.fullName || '---'}</p>
+          </div>
+          <div>
+            <p className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Data da Receita</p>
+            <p className="font-extrabold text-slate-800 text-sm">
+              {printRecord.createdAt ? (
+                printRecord.createdAt.toDate ? printRecord.createdAt.toDate().toLocaleDateString('pt-BR') : new Date(printRecord.createdAt).toLocaleDateString('pt-BR')
+              ) : new Date().toLocaleDateString('pt-BR')}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-8 mb-12 space-y-6">
+          <h2 className="text-sm font-black uppercase tracking-widest text-slate-900 border-b pb-2">RECEITUÁRIO MÉDICO</h2>
+          
+          {/* Medications List */}
+          <ol className="list-decimal list-inside space-y-6">
+            {(printRecord.data?.items || [printRecord.data]).map((item: any, idx: number) => (
+              <li key={idx} className="pl-2 border-l-4 border-slate-950 py-1 list-none">
+                <div className="inline-block ml-2">
+                  <p className="font-extrabold text-base text-slate-900 uppercase">{idx + 1}. {item.medicationName || item.medicationName}</p>
+                  <p className="text-xs font-bold text-slate-500 mt-1">Dosagem / Posologia: {item.dosage || item.dosage}</p>
+                  {item.instructions && (
+                    <p className="text-[11px] text-slate-600 mt-1 leading-relaxed italic">Orientações: {item.instructions}</p>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+
+        {/* Signature Area */}
+        <div className="absolute bottom-16 left-0 right-0 text-center space-y-2">
+          <div className="w-64 border-t border-slate-400 mx-auto pt-2">
+            <p className="text-xs font-black uppercase text-slate-900">{printRecord.professionalName || 'Cirurgião-Dentista'}</p>
+            <p className="text-[10px] font-bold text-slate-500">CRO/AC registrado - Cirurgião-Dentista Clínico Geral</p>
+          </div>
+        </div>
+      </div>
+    )}
+  </>
+);
 }

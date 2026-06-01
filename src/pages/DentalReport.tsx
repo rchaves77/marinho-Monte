@@ -221,15 +221,15 @@ export default function DentalReport() {
         <div>
           <h1 className="text-3xl font-bold text-[#0f172a] tracking-tight flex items-center gap-3">
             <FileText className="text-indigo-600" size={32} />
-            Relatório de Produção SIGTAP
+            Relatório de Faturamento (AIH & SAME)
           </h1>
-          <p className="text-slate-500 mt-1">Gere relatórios de faturamento do SUS (BPA-I) e acompanhe a produtividade clínica.</p>
+          <p className="text-slate-500 mt-1">Acompanhe quantitativos e gere a listagem de dados dos pacientes e códigos de procedimentos SIGTAP para entrega segura aos setores de faturamentos AIH e SAME (sem limite de registros).</p>
         </div>
         <button
           onClick={() => window.print()}
           className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-md shadow-indigo-100 shrink-0"
         >
-          <Printer size={16} /> Imprimir / Salvar PDF
+          <Printer size={16} /> Imprimir Relatório AIH/SAME
         </button>
       </div>
 
@@ -327,7 +327,7 @@ export default function DentalReport() {
               activeTab === 'summary' ? 'text-indigo-600 font-bold' : 'text-slate-400 hover:text-slate-600'
             }`}
           >
-            Consolidação SIGTAP
+            Quantitativos de Procedimentos (Consolidação SIGTAP)
             {activeTab === 'summary' && (
               <motion.div layoutId="activeTabIndicator" className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600" />
             )}
@@ -338,7 +338,7 @@ export default function DentalReport() {
               activeTab === 'bpa_list' ? 'text-indigo-600 font-bold' : 'text-slate-400 hover:text-slate-600'
             }`}
           >
-            Produção BPA-I (Lista Unificada)
+            Lista de Pacientes e Códigos (Entrega AIH / SAME)
             {activeTab === 'bpa_list' && (
               <motion.div layoutId="activeTabIndicator" className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600" />
             )}
@@ -350,11 +350,11 @@ export default function DentalReport() {
           <div className="flex justify-between items-end">
             <div>
               <h2 className="text-2xl font-black text-slate-900 tracking-tight uppercase">Unidade de Saúde Aurora Digital</h2>
-              <p className="text-xs text-slate-500 font-bold">Relatório de Faturamento Individualizado - BPA-I / SISCOLO</p>
+              <p className="text-xs text-slate-500 font-bold">Relatório Consolidado de Pacientes e Procedimentos Clínicos (Envio AIH / SAME)</p>
               <p className="text-[10px] text-slate-400 font-bold mt-1 font-mono">Processamento: {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}</p>
             </div>
             <div className="text-right">
-              <p className="text-xs font-black text-indigo-600 uppercase tracking-widest font-mono">BPA-I COMPILADO</p>
+              <p className="text-xs font-black text-indigo-600 uppercase tracking-widest font-mono">REMESSA AIH/SAME</p>
               <p className="text-[11px] text-slate-500 font-bold uppercase mt-1">Filtros: {selectedDentist === 'all' ? 'TODOS OS PROFISSIONAIS' : selectedDentist.toUpperCase()}</p>
               <p className="text-[11px] text-slate-500 font-bold uppercase">Período: {formatPeriodLabel()}</p>
             </div>
@@ -447,12 +447,12 @@ export default function DentalReport() {
               <div className="bg-white border border-slate-200 rounded-[2rem] overflow-hidden shadow-sm">
                 <div className="px-8 py-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <h4 className="text-xs font-black uppercase text-indigo-600 tracking-wider">Lançamentos de Produção Individualizados</h4>
-                    <p className="text-[11px] text-slate-400 font-bold mt-1">Utilize esta folha para preenchimento de faturas de BPA no portal oficial do Ministério da Saúde.</p>
+                    <h4 className="text-xs font-black uppercase text-indigo-600 tracking-wider">Remessa Unificada de Atendimentos para AIH & SAME</h4>
+                    <p className="text-[11px] text-slate-400 font-bold mt-1">Este controle reúne os dados cadastrais completos dos pacientes cruzados com os códigos de procedimento SIGTAP executados no período.</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-3 shrink-0">
                     <span className="text-[10px] bg-emerald-50 text-emerald-700 px-3 py-1 rounded-lg font-black tracking-widest uppercase">
-                      {flatProceduresList.length} Lançamentos BPA-I
+                      {flatProceduresList.length} Linhas de Remessa
                     </span>
                     {flatProceduresList.length > 0 && (
                       <button

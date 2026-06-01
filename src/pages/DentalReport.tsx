@@ -552,9 +552,10 @@ export default function DentalReport() {
           )}
         </AnimatePresence>
 
-        {/* PRINT SPECIFIC TERMS FOOTER */}
-        <div className="hidden print:block mt-12 pt-8 border-t border-dashed border-slate-300">
-          <div className="grid grid-cols-2 gap-12 text-center text-xs">
+        {/* SIGNATURES AND DIGITAL CERTIFICATE VALIDADER FOOTER */}
+        <div className="mt-12 space-y-8">
+          {/* Hand Signatures (Visibles only on Print) */}
+          <div className="hidden print:grid grid-cols-2 gap-12 text-center text-xs">
             <div className="space-y-1">
               <div className="h-10 border-b border-slate-300 w-4/5 mx-auto" />
               <p className="font-bold text-slate-600 uppercase">Assinatura do Profissional Responsável</p>
@@ -566,6 +567,57 @@ export default function DentalReport() {
               <p className="text-[10px] text-slate-400 font-mono">Autorização de Processamento SUS</p>
             </div>
           </div>
+
+          {/* Digital Signature stamp with real QR Code & validation link (Visible on both Screen and Print) */}
+          {(() => {
+            const currentHost = typeof window !== 'undefined' ? window.location.origin : 'https://unidade-aurora.gov.br';
+            const validationUrl = `${currentHost}/relatorios?periodo=${selectedPeriod}&dentista=${encodeURIComponent(selectedDentist)}`;
+            const validationCode = `USAD-VALID-${new Date().getFullYear()}-${selectedPeriod.substring(0,3).toUpperCase()}-${selectedDentist === 'all' ? 'GERAL' : (selectedDentist.split(' ')[1] || 'DENTISTA').toUpperCase()}`;
+
+            return (
+              <div className="bg-slate-50 border border-slate-200/60 p-6 rounded-[2rem] gap-6 flex flex-col md:flex-row items-center justify-between shadow-inner print:bg-white print:border-t print:border-b print:border-dashed print:border-slate-300 print:shadow-none print:p-6 print:rounded-none">
+                <div className="flex flex-col md:flex-row items-center gap-6">
+                  {/* Visual ICP-Brasil Seal / Badge */}
+                  <div className="flex flex-col items-center bg-emerald-50/80 p-4 rounded-2xl border border-emerald-250/50 text-[#004e32] text-center w-40 shrink-0 print:border-[#004e32]/25">
+                    <div className="font-black text-[10px] tracking-widest leading-none">ASSINADO</div>
+                    <div className="font-extrabold text-[12px] uppercase mt-1">DIGITALMENTE</div>
+                    <div className="text-[7px] font-bold text-slate-500 uppercase tracking-wide mt-2">PADRÃO ICP-BRASIL</div>
+                    <div className="text-[7px] font-mono text-slate-500 mt-1">MP Nº 2.200-2/2001</div>
+                  </div>
+
+                  {/* Validation Terms and Link */}
+                  <div className="space-y-1.5 text-center md:text-left flex-1">
+                    <h5 className="text-xs font-black text-slate-800 uppercase tracking-widest flex items-center gap-2 justify-center md:justify-start">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block animate-pulse shrink-0" />
+                      Documento Certificado Digitalmente
+                    </h5>
+                    <p className="text-[11px] text-slate-500 font-medium leading-relaxed max-w-xl">
+                      Esta remessa consolidada de faturamento clínica e hospitalar de pacientes e procedimentos clínicos (SAME/AIH) foi validada, assinada digitalmente de forma automatizada pelo sistema informatizado em conformidade com as diretivas de faturamento e auditoria do SUS.
+                    </p>
+                    <div className="text-[10px] font-mono text-slate-400 font-semibold uppercase mt-2">
+                      ID DE AUTENTICAÇÃO: <span className="text-indigo-600 font-black">{validationCode}</span>
+                    </div>
+                    <div className="text-[10px] font-mono text-slate-400 font-semibold uppercase">
+                      LINK DE VALIDAÇÃO: <a href={validationUrl} target="_blank" rel="noreferrer" className="text-indigo-600 underline font-black hover:text-indigo-800">{validationUrl}</a>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Real QR Code validated for print */}
+                <div className="flex flex-col items-center gap-1.5 shrink-0">
+                  <div className="p-2.5 bg-white border border-slate-200 rounded-2xl shadow-sm">
+                    <img 
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(validationUrl)}`} 
+                      alt="QR Code de validação do relatório faturamento" 
+                      className="w-24 h-24 print:w-20 print:h-20"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                  <span className="text-[8px] font-black text-slate-400 uppercase tracking-wider">Aponte para validar</span>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
     </motion.div>

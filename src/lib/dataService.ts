@@ -39,6 +39,7 @@ export interface Patient {
   updatedAt?: any;
   allergies?: string;
   comorbidities?: string;
+  noDocument?: boolean;
 }
 
 export interface ClinicalRecord {
@@ -455,30 +456,42 @@ export const dataService = {
 
   async getAllEvolutionsForReport() {
     try {
-      // 1. Fetch all clinical records via collection group
-      const recordsSnap = await getDocs(collectionGroup(db, 'clinical_records'));
-      const rawRecords = recordsSnap.docs.map(doc => {
-        const data = doc.data();
-        const patientId = doc.ref.parent.parent?.id || data.patientId;
-        return {
-          id: doc.id,
-          patientId,
-          ...data,
-          // Extract timestamp correctly
-          _createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : (data.createdAt?.seconds ? data.createdAt.seconds * 1000 : Date.now())
-        };
-      });
-
-      // Filter just type === 'evolution' in memory (index-free & safe)
-      const evolutionRecords = rawRecords.filter((r: any) => r.type === 'evolution');
-
-      // 2. Fetch all patients to pair details
-      // Since patients list is usually small to moderate, the list call or separate mapping is efficient
+      // 1. Fetch all patients
       const patientsSnap = await getDocs(collection(db, 'patients'));
       const patientsMap = new Map<string, any>();
-      patientsSnap.docs.forEach(doc => {
-        patientsMap.set(doc.id, { id: doc.id, ...doc.data() });
+      const patientsList: any[] = [];
+      
+      patientsSnap.docs.forEach(docSnap => {
+        const data = docSnap.id ? { id: docSnap.id, ...docSnap.data() } : docSnap.data();
+        patientsMap.set(docSnap.id, data);
+        patientsList.push(data);
       });
+
+      // 2. Fetch clinical records for EACH patient in parallel
+      const recordPromises = patientsList.map(async (pat) => {
+        try {
+          const q = query(collection(db, 'patients', pat.id, 'clinical_records'));
+          const rSnap = await getDocs(q);
+          return rSnap.docs.map(docSnap => {
+            const data = docSnap.data();
+            return {
+              id: docSnap.id,
+              patientId: pat.id,
+              ...data,
+              _createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : (data.createdAt?.seconds ? data.createdAt.seconds * 1000 : Date.now())
+            };
+          });
+        } catch (e) {
+          console.error(`Error fetching records for patient ${pat.id}:`, e);
+          return [];
+        }
+      });
+
+      const allRecordsArrays = await Promise.all(recordPromises);
+      const rawRecords = allRecordsArrays.flat();
+
+      // Filter just type === 'evolution' (both 'evolution' and any 'evolucao' typo variations)
+      const evolutionRecords = rawRecords.filter((r: any) => r.type === 'evolution' || r.type === 'evolucao');
 
       // 3. Pair records with patient info
       const results = evolutionRecords.map((rec: any) => {

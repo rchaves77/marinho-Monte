@@ -13,6 +13,7 @@ export default function PatientRegistration() {
     gender: 'Masculino',
     documentId: '',
     susCard: '',
+    noDocument: false,
     phone: '',
     address: {
       street: '',
@@ -214,6 +215,7 @@ export default function PatientRegistration() {
           birthDate: formData.birthDate || '',
           documentId: formData.documentId || '',
           susCard: formData.susCard || '',
+          noDocument: formData.noDocument || false,
           phone: formData.phone || '',
           address: formData.address || { street: '', number: '', neighborhood: '', city: 'Rio Branco', state: 'AC' },
           companionName: formData.companionName || '',
@@ -253,9 +255,13 @@ export default function PatientRegistration() {
           <button 
             onClick={() => setFormData({
               fullName: '',
+              motherName: '',
               birthDate: '',
               gender: 'Masculino',
               documentId: '',
+              susCard: '',
+              noDocument: false,
+              phone: '',
               address: { street: '', number: '', neighborhood: '', city: 'Rio Branco', state: 'AC' },
               companionName: ''
             })}
@@ -454,23 +460,33 @@ export default function PatientRegistration() {
               </div>
 
               <div className="md:col-span-1">
-                <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">CPF (Opcional)</label>
+                <label className={`block text-[10px] font-black uppercase tracking-wider mb-2 ${formData.noDocument ? 'text-slate-300' : 'text-slate-400'}`}>CPF (Opcional)</label>
                 <input 
                   type="text" 
                   value={formData.documentId || ''}
                   onChange={(e) => handleInputChange('documentId', e.target.value)}
                   placeholder="000.000.000-00"
-                  className="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-sm font-bold text-slate-700 focus:border-[#4f46e5] focus:ring-1 focus:ring-[#4f46e5] outline-none transition-all"
+                  disabled={!!formData.noDocument}
+                  className={`w-full border rounded-lg px-4 py-2.5 text-sm font-bold outline-none transition-all ${
+                    formData.noDocument 
+                      ? 'bg-slate-50 border-slate-100 text-slate-300 cursor-not-allowed placeholder:text-slate-200' 
+                      : 'border-slate-200 text-slate-700 focus:border-[#4f46e5] focus:ring-1 focus:ring-[#4f46e5]'
+                  }`}
                 />
               </div>
               <div className="md:col-span-1">
-                <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">CNS SUS (Cartão do SUS)</label>
+                <label className={`block text-[10px] font-black uppercase tracking-wider mb-2 ${formData.noDocument ? 'text-slate-300' : 'text-slate-400'}`}>CNS SUS (Cartão do SUS)</label>
                 <input 
                   type="text" 
                   value={formData.susCard || ''}
                   onChange={(e) => handleInputChange('susCard', e.target.value)}
                   placeholder="000 0000 0000 0000"
-                  className="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-sm font-bold text-slate-700 focus:border-[#4f46e5] focus:ring-1 focus:ring-[#4f46e5] outline-none transition-all font-mono"
+                  disabled={!!formData.noDocument}
+                  className={`w-full border rounded-lg px-4 py-2.5 text-sm font-bold outline-none transition-all font-mono ${
+                    formData.noDocument 
+                      ? 'bg-slate-50 border-slate-100 text-slate-300 cursor-not-allowed placeholder:text-slate-200' 
+                      : 'border-slate-200 text-slate-700 focus:border-[#4f46e5] focus:ring-1 focus:ring-[#4f46e5]'
+                  }`}
                 />
               </div>
               <div className="md:col-span-1">
@@ -482,6 +498,29 @@ export default function PatientRegistration() {
                   placeholder="https://exemplo.com/foto.jpg"
                   className="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-sm font-bold text-slate-700 focus:border-[#4f46e5] focus:ring-1 focus:ring-[#4f46e5] outline-none transition-all placeholder:text-slate-300"
                 />
+              </div>
+
+              {/* Checkbox declare Sem Documento */}
+              <div className="md:col-span-3 bg-slate-50 p-4 border border-slate-100 rounded-2xl flex items-start gap-3 mt-2 shadow-inner">
+                <input 
+                  type="checkbox" 
+                  id="noDocumentCheckbox"
+                  checked={!!formData.noDocument}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setFormData(prev => ({
+                      ...prev,
+                      noDocument: checked,
+                      documentId: checked ? '' : prev.documentId,
+                      susCard: checked ? '' : prev.susCard
+                    }));
+                  }}
+                  className="w-4 h-4 text-[#4f46e5] border-slate-300 rounded focus:ring-indigo-500 mt-1 cursor-pointer transition-colors"
+                />
+                <label htmlFor="noDocumentCheckbox" className="text-xs text-slate-600 font-bold leading-normal cursor-pointer select-none">
+                  <span className="block text-slate-950 font-black uppercase text-[10px] tracking-wider mb-0.5">Paciente Sem Documentos</span>
+                  Confirmo e declaro que o paciente não portava ou não apresentou o CPF ou o Cartão Nacional de Saúde (CNS) SUS no instante do cadastro/atendimento.
+                </label>
               </div>
             </div>
           </section>

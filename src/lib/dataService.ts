@@ -308,6 +308,17 @@ export const dataService = {
   async deletePatient(patientId: string) {
     const path = `patients/${patientId}`;
     try {
+      // Fetch and delete all clinical records for this patient first
+      const records = await dataService.getRecordsByPatient(patientId);
+      if (records && records.length > 0) {
+        for (const record of records) {
+          if (record.id) {
+            await deleteDoc(doc(db, 'patients', patientId, 'clinical_records', record.id));
+          }
+        }
+        console.log(`Deleted ${records.length} clinical records for patient ${patientId}`);
+      }
+      // Delete the main patient document
       await deleteDoc(doc(db, 'patients', patientId));
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, path);

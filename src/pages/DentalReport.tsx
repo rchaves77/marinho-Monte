@@ -125,6 +125,80 @@ export default function DentalReport() {
     return 'Todo o Período';
   };
 
+  const exportConsolidatedCSV = () => {
+    const headers = ['Código SIGTAP', 'Procedimento Realizado', 'Quantidade', 'Porcentagem'];
+    const csvRows = [headers.join(',')];
+
+    sortedSummaryProcedures.forEach(proc => {
+      const percent = totalProceduresPerformed > 0 ? ((proc.count / totalProceduresPerformed) * 100).toFixed(1) : '0';
+      const row = [
+        `"${proc.code}"`,
+        `"${proc.name.replace(/"/g, '""')}"`,
+        proc.count,
+        `"${percent}%"`
+      ];
+      csvRows.push(row.join(','));
+    });
+
+    const csvContent = "\uFEFF" + csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.className = 'hidden';
+    link.setAttribute('href', url);
+    link.setAttribute('download', `consolidacao_sigtap_${selectedPeriod}_${selectedDentist.replace(/\s+/g, '_').toLowerCase()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportDetailedBpaCSV = () => {
+    const headers = [
+      'Data de Atendimento',
+      'Nome do Paciente',
+      'Nome da Mãe',
+      'CPF',
+      'CNS SUS',
+      'Data de Nascimento',
+      'Telefone',
+      'Endereço',
+      'Código SIGTAP',
+      'Procedimento',
+      'CBO',
+      'Dentista'
+    ];
+    const csvRows = [headers.join(',')];
+
+    flatProceduresList.forEach(item => {
+      const row = [
+        `"${new Date(item.date).toLocaleDateString('pt-BR')}"`,
+        `"${item.patientName.replace(/"/g, '""')}"`,
+        `"${item.patientMotherName.replace(/"/g, '""')}"`,
+        `"${item.patientCpf || ''}"`,
+        `"${item.patientSusCard || ''}"`,
+        `"${item.patientBirth || ''}"`,
+        `"${item.patientPhone || ''}"`,
+        `"${item.patientFullAddress.replace(/"/g, '""')}"`,
+        `"${item.code}"`,
+        `"${item.name.replace(/"/g, '""')}"`,
+        `"${item.cbo}"`,
+        `"${item.dentist.replace(/"/g, '""')}"`
+      ];
+      csvRows.push(row.join(','));
+    });
+
+    const csvContent = "\uFEFF" + csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.className = 'hidden';
+    link.setAttribute('href', url);
+    link.setAttribute('download', `producao_bpa_${selectedPeriod}_${selectedDentist.replace(/\s+/g, '_').toLowerCase()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -153,9 +227,9 @@ export default function DentalReport() {
         </div>
         <button
           onClick={() => window.print()}
-          className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-md shadow-indigo-100"
+          className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-md shadow-indigo-100 shrink-0"
         >
-          <Printer size={16} /> Imprimir Relatório
+          <Printer size={16} /> Imprimir / Salvar PDF
         </button>
       </div>
 
@@ -298,11 +372,24 @@ export default function DentalReport() {
             >
               {/* Tabular summary grouped by SIGTAP */}
               <div className="bg-white border border-slate-200 rounded-[2rem] overflow-hidden shadow-sm">
-                <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
-                  <h4 className="text-xs font-black uppercase text-indigo-600 tracking-wider">Tabela Consolidada de Faturamento SUS</h4>
-                  <span className="text-[10px] bg-indigo-50 text-indigo-700 px-3 py-1 rounded-lg font-black tracking-widest uppercase">
-                    {sortedSummaryProcedures.length} Procedimentos Distintos
-                  </span>
+                <div className="px-8 py-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h4 className="text-xs font-black uppercase text-indigo-600 tracking-wider">Tabela Consolidada de Faturamento SUS</h4>
+                    <p className="text-[11px] text-slate-400 font-bold mt-1">Resumo agrupado por código de procedimento para faturamento.</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="text-[10px] bg-indigo-50 text-indigo-700 px-3 py-1 rounded-lg font-black tracking-widest uppercase shrink-0">
+                      {sortedSummaryProcedures.length} Procedimentos Distintos
+                    </span>
+                    {sortedSummaryProcedures.length > 0 && (
+                      <button
+                        onClick={exportConsolidatedCSV}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] uppercase tracking-wider px-4 py-2 rounded-xl transition-all flex items-center gap-2 shadow-sm"
+                      >
+                        <Download size={12} /> Exportar CSV
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -358,14 +445,24 @@ export default function DentalReport() {
             >
               {/* BPA list detailing per-patient entry */}
               <div className="bg-white border border-slate-200 rounded-[2rem] overflow-hidden shadow-sm">
-                <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
+                <div className="px-8 py-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
                     <h4 className="text-xs font-black uppercase text-indigo-600 tracking-wider">Lançamentos de Produção Individualizados</h4>
                     <p className="text-[11px] text-slate-400 font-bold mt-1">Utilize esta folha para preenchimento de faturas de BPA no portal oficial do Ministério da Saúde.</p>
                   </div>
-                  <span className="text-[10px] bg-emerald-50 text-emerald-700 px-3 py-1 rounded-lg font-black tracking-widest uppercase">
-                    {flatProceduresList.length} Lançamentos BPA-I
-                  </span>
+                  <div className="flex flex-wrap items-center gap-3 shrink-0">
+                    <span className="text-[10px] bg-emerald-50 text-emerald-700 px-3 py-1 rounded-lg font-black tracking-widest uppercase">
+                      {flatProceduresList.length} Lançamentos BPA-I
+                    </span>
+                    {flatProceduresList.length > 0 && (
+                      <button
+                        onClick={exportDetailedBpaCSV}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] uppercase tracking-wider px-4 py-2 rounded-xl transition-all flex items-center gap-2 shadow-sm"
+                      >
+                        <Download size={12} /> Exportar Planilha CSV
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="overflow-x-auto">

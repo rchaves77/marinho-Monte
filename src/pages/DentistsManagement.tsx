@@ -36,18 +36,18 @@ export default function DentistsManagement() {
   });
 
   useEffect(() => {
-    fetchDentists();
+    fetchDentists(true);
   }, []);
 
-  const fetchDentists = async () => {
-    setLoading(true);
+  const fetchDentists = async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     try {
       const data = await dataService.getDentists();
       setDentists(data || []);
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
@@ -69,21 +69,21 @@ export default function DentistsManagement() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.cro || !user) return;
+    if (!form.name || !form.cro) return;
     
     setSaving(true);
     try {
       await dataService.saveDentist({
         id: editingId || undefined,
-        name: form.name.toUpperCase(),
-        cro: form.cro.toUpperCase(),
+        name: form.name.toUpperCase().trim(),
+        cro: form.cro.toUpperCase().trim(),
         status: form.status,
-        createdBy: user.uid
+        createdBy: user?.uid || 'guest-user'
       });
       setIsFormOpen(false);
       setForm({ name: '', cro: '', status: 'active' });
       setEditingId(null);
-      await fetchDentists();
+      await fetchDentists(false);
     } catch (err) {
       console.error(err);
       alert('Erro ao salvar cirurgião-dentista.');
@@ -97,7 +97,7 @@ export default function DentistsManagement() {
     setDeletingId(id);
     try {
       await dataService.deleteDentist(id);
-      await fetchDentists();
+      await fetchDentists(false);
     } catch (err) {
       console.error(err);
       alert('Erro ao excluir cirurgião-dentista.');
@@ -112,7 +112,7 @@ export default function DentistsManagement() {
     return matchesSearch;
   });
 
-  const canManage = profile?.role === 'admin' || profile?.role === 'professional';
+  const canManage = profile?.role === 'admin' || profile?.role === 'professional' || !!user;
 
   if (loading) {
     return (
@@ -138,93 +138,115 @@ export default function DentistsManagement() {
             <Stethoscope className="text-indigo-600" size={32} />
             Cirurgiões Dentistas
           </h1>
-          <p className="text-slate-500 mt-1">Gerencie os dentistas credenciados e atuantes na unidade.</p>
+          <p className="text-slate-500 mt-1 font-medium text-xs">Gerencie os dentistas credenciados e atuantes na unidade.</p>
         </div>
-        {canManage && !isFormOpen && (
+        {canManage && (
           <button
             onClick={handleOpenCreate}
-            className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-md shadow-indigo-100"
+            className="bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider hover:bg-indigo-700 transition-all flex items-center gap-2 shadow-md shadow-indigo-100 shrink-0"
           >
             <Plus size={16} /> Cadastrar Dentista
           </button>
         )}
       </div>
 
-      <AnimatePresence mode="wait">
+      <AnimatePresence>
         {isFormOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden"
-          >
-            <form onSubmit={handleSave} className="bg-white border border-indigo-100 p-6 rounded-3xl space-y-6 shadow-sm relative">
-              <div className="absolute top-4 right-4">
-                <button 
-                  type="button"
-                  onClick={() => setIsFormOpen(false)}
-                  className="p-1.5 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-all"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-              <h2 className="text-sm font-black text-indigo-600 uppercase tracking-widest">
-                {editingId ? 'Editar Cadastro de Dentista' : 'Novo Cadastro de Dentista'}
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">Nome Completo</label>
-                  <input
-                    type="text"
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    required
-                    placeholder="DRA. ANNY KAROLLINY LOPES CABRAL"
-                    className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 outline-none transition-all placeholder:text-slate-300"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">Inscrição CRO (Conselho)</label>
-                  <input
-                    type="text"
-                    value={form.cro}
-                    onChange={(e) => setForm({ ...form, cro: e.target.value })}
-                    required
-                    placeholder="CRO/AC 1279"
-                    className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 outline-none transition-all placeholder:text-slate-300"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">Status de Atuação</label>
-                  <select
-                    value={form.status}
-                    onChange={(e) => setForm({ ...form, status: e.target.value as any })}
-                    className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 outline-none transition-all"
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsFormOpen(false)}
+              className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+            />
+
+            {/* Modal Card */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="bg-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl relative border border-slate-100 z-10"
+            >
+              <form onSubmit={handleSave} className="p-8 space-y-6">
+                <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                      <Stethoscope size={18} />
+                    </div>
+                    <div>
+                      <h2 className="text-sm font-black text-[#0f172a] uppercase tracking-wide">
+                        {editingId ? 'Editar Cadastro de Dentista' : 'Novo Cadastro de Dentista'}
+                      </h2>
+                      <p className="text-[10px] text-slate-400 font-bold mt-0.5">Insira os dados profissionais para credenciamento.</p>
+                    </div>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => setIsFormOpen(false)}
+                    className="p-1.5 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-all"
                   >
-                    <option value="active">Em Atividade</option>
-                    <option value="inactive">Inativo / Afastado</option>
-                  </select>
+                    <X size={18} />
+                  </button>
                 </div>
-              </div>
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsFormOpen(false)}
-                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition-all"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-2 shadow-md shadow-indigo-100"
-                >
-                  {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} 
-                  {editingId ? 'Salvar Edições' : 'Gravar Dentista'}
-                </button>
-              </div>
-            </form>
-          </motion.div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">Nome Completo</label>
+                    <input
+                      type="text"
+                      value={form.name}
+                      onChange={(e) => setForm({ ...form, name: e.target.value })}
+                      required
+                      placeholder="DRA. ANNY KAROLLINY LOPES CABRAL"
+                      className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 outline-none transition-all placeholder:text-slate-300"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">Inscrição CRO (Conselho)</label>
+                    <input
+                      type="text"
+                      value={form.cro}
+                      onChange={(e) => setForm({ ...form, cro: e.target.value })}
+                      required
+                      placeholder="CRO/AC 1279"
+                      className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 outline-none transition-all placeholder:text-slate-300"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">Status de Atuação</label>
+                    <select
+                      value={form.status}
+                      onChange={(e) => setForm({ ...form, status: e.target.value as any })}
+                      className="w-full bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 outline-none transition-all"
+                    >
+                      <option value="active">Em Atividade</option>
+                      <option value="inactive">Inativo / Afastado</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setIsFormOpen(false)}
+                    className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving}
+                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-2 shadow-md shadow-indigo-100"
+                  >
+                    {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} 
+                    {editingId ? 'Salvar Edições' : 'Gravar Dentista'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 

@@ -197,14 +197,25 @@ export const dataService = {
   },
 
   // SAVE Clinical Record
-  async saveClinicalRecord(record: Omit<ClinicalRecord, 'id' | 'createdAt'>) {
+  async saveClinicalRecord(record: Omit<ClinicalRecord, 'id'> & { createdAt?: any }) {
     const path = `patients/${record.patientId}/clinical_records`;
     try {
       const docRef = await addDoc(collection(db, path), {
         ...record,
-        createdAt: serverTimestamp()
+        createdAt: record.createdAt || serverTimestamp()
       });
       return docRef.id;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  },
+
+  // UPDATE Clinical Record (including attendance date)
+  async updateClinicalRecord(patientId: string, recordId: string, data: Partial<ClinicalRecord> & { createdAt?: any }) {
+    const path = `patients/${patientId}/clinical_records/${recordId}`;
+    try {
+      const docRef = doc(db, 'patients', patientId, 'clinical_records', recordId);
+      await updateDoc(docRef, data);
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, path);
     }

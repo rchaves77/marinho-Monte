@@ -49,6 +49,13 @@ export default function MedicalRecord() {
   const [isEditingPhoto, setIsEditingPhoto] = useState(false);
   const [isMedicationPickerOpen, setIsMedicationPickerOpen] = useState(false);
   const [newPhotoUrl, setNewPhotoUrl] = useState('');
+  const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
+  const [editingRecordDate, setEditingRecordDate] = useState<string>('');
+  const [attendanceDate, setAttendanceDate] = useState<string>(() => {
+    const now = new Date();
+    const offset = now.getTimezoneOffset() * 60000;
+    return new Date(now.getTime() - offset).toISOString().slice(0, 16);
+  });
   const navigate = useNavigate();
 
   // Form States
@@ -151,12 +158,18 @@ export default function MedicalRecord() {
         type: typeMap[tabType],
         data,
         createdBy: user.uid,
-        professionalName: user.displayName || 'Profissional'
+        professionalName: user.displayName || 'Profissional',
+        createdAt: new Date(attendanceDate)
       });
       setSuccess(true);
       await loadData(id); // Reload timeline
       setTimeout(() => setSuccess(false), 2000);
       
+      // Reset date to current local time for next entries
+      const now = new Date();
+      const offset = now.getTimezoneOffset() * 60000;
+      setAttendanceDate(new Date(now.getTime() - offset).toISOString().slice(0, 16));
+
       // Reset forms if needed
       if (tabType === 'evolucao') setEvolutionText('');
       if (tabType === 'prescricao') setPrescriptionForm({ medicationName: '', dosage: '', instructions: '' });
@@ -164,6 +177,23 @@ export default function MedicalRecord() {
       setActiveTab('resumo');
     } catch (err) {
       console.error(err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleUpdateRecordDate = async (recordId: string) => {
+    if (!patient || !id) return;
+    setSaving(true);
+    try {
+      await dataService.updateClinicalRecord(patient.id!, recordId, {
+        createdAt: new Date(editingRecordDate)
+      } as any);
+      setEditingRecordId(null);
+      await loadData(id); // Reload timeline
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao atualizar a data do atendimento.');
     } finally {
       setSaving(false);
     }
@@ -413,6 +443,28 @@ export default function MedicalRecord() {
         ))}
       </div>
 
+      {activeTab !== 'resumo' && (
+        <div className="bg-[#f8fafc] border border-slate-200/60 p-5 rounded-[1.5rem] flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100/40 text-indigo-600 flex items-center justify-center">
+              <Calendar size={18} />
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-0.5">Data e Hora do Atendimento</p>
+              <p className="text-xs font-bold text-slate-500">Altere para registrar este atendimento retroativamente</p>
+            </div>
+          </div>
+          <div>
+            <input 
+              type="datetime-local"
+              value={attendanceDate}
+              onChange={(e) => setAttendanceDate(e.target.value)}
+              className="bg-white border border-slate-200 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-mono"
+            />
+          </div>
+        </div>
+      )}
+
       <AnimatePresence mode="wait">
         <motion.div
           key={activeTab}
@@ -449,19 +501,63 @@ export default function MedicalRecord() {
                                record.type === 'prescription' ? <Pill size={18} /> : <LogOut size={18} />}
                             </div>
                             <div>
-                              <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-0.5">
-                                {record.createdAt ? (
-                                  record.createdAt.toDate ? (
-                                    <>
-                                      {record.createdAt.toDate().toLocaleDateString('pt-BR')} às {record.createdAt.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                                    </>
-                                  ) : (
-                                    <>Data registrada</>
-                                  )
-                                ) : (
-                                  <>Recentemente salvo</>
-                                )}
-                              </p>
+                              {editingRecordId === record.id ? (
+                                <div className="flex flex-wrap items-center gap-2 mb-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                                  <input 
+                                    type="datetime-local"
+                                    value={editingRecordDate}
+                                    onChange={(e) => setEditingRecordDate(e.target.value)}
+                                    className="bg-white border border-slate-300 px-3 py-1.5 rounded-lg text-xs font-mono font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
+                                  />
+                                  <button 
+                                    onClick={() => handleUpdateRecordDate(record.id!)}
+                                    disabled={saving}
+                                    className="px-3 py-1.5 bg-indigo-600 text-white font-black text-[10px] uppercase tracking-wider rounded-lg hover:bg-indigo-700 transition-all flex items-center gap-1 shadow-md shadow-indigo-100 disabled:opacity-50"
+                                  >
+                                    {saving ? <Loader2 size={10} className="animate-spin" /> : <Check size={12} />} Salvar
+                                  </button>
+                                  <button 
+                                    onClick={() => setEditingRecordId(null)}
+                                    className="px-3 py-1.5 bg-slate-200 text-slate-700 font-bold text-[10px] uppercase tracking-wider rounded-lg hover:bg-slate-300 transition-all"
+                                  >
+                                    Cancelar
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2 mb-0.5 group/date">
+                                  <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">
+                                    {record.createdAt ? (
+                                      record.createdAt.toDate ? (
+                                        <>
+                                          {record.createdAt.toDate().toLocaleDateString('pt-BR')} às {record.createdAt.toDate().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                                        </>
+                                      ) : (
+                                        <>Data registrada</>
+                                      )
+                                    ) : (
+                                      <>Recentemente salvo</>
+                                    )}
+                                  </p>
+                                  <button 
+                                    onClick={() => {
+                                      setEditingRecordId(record.id!);
+                                      if (record.createdAt) {
+                                        const d = record.createdAt.toDate ? record.createdAt.toDate() : new Date();
+                                        const offset = d.getTimezoneOffset() * 60000;
+                                        setEditingRecordDate(new Date(d.getTime() - offset).toISOString().slice(0, 16));
+                                      } else {
+                                        const now = new Date();
+                                        const offset = now.getTimezoneOffset() * 60000;
+                                        setEditingRecordDate(new Date(now.getTime() - offset).toISOString().slice(0, 16));
+                                      }
+                                    }}
+                                    className="p-1 text-slate-400 hover:text-indigo-600 rounded hover:bg-slate-100 transition-all inline-flex items-center"
+                                    title="Editar Data do Atendimento"
+                                  >
+                                    <Edit2 size={11} />
+                                  </button>
+                                </div>
+                              )}
                               <h4 className="font-bold text-slate-800 uppercase text-xs mb-3">{record.type.replace('anamnesis', 'Anamnese').replace('evolution', 'Evolução').replace('prescription', 'Prescrição').replace('discharge', 'Alta')}</h4>
                               
                               <div className="text-sm text-slate-600 leading-relaxed max-w-2xl">

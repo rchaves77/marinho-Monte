@@ -8,9 +8,12 @@ export default function PatientRegistration() {
   const { user } = useAuth();
   const [formData, setFormData] = useState<Partial<Patient>>({
     fullName: '',
+    motherName: '',
     birthDate: '',
     gender: 'Masculino',
     documentId: '',
+    susCard: '',
+    phone: '',
     address: {
       street: '',
       number: '',
@@ -34,23 +37,39 @@ export default function PatientRegistration() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  // Helper to format CPF (11) or CNS (15)
-  const formatDocument = (value: string) => {
-    const digits = value.replace(/\D/g, '');
-    if (digits.length <= 11) {
-      // CPF: 000.000.000-00
+  // Helper to format CPF: 000.000.000-00 (11 digits)
+  const formatCPF = (value: string) => {
+    const digits = value.replace(/\D/g, '').substring(0, 11);
+    return digits
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{1,2})$/, '$1-$2')
+      .substring(0, 14);
+  };
+
+  // Helper to format CNS SUS: 000 0000 0000 0000 (15 digits)
+  const formatCNS = (value: string) => {
+    const digits = value.replace(/\D/g, '').substring(0, 15);
+    return digits
+      .replace(/(\d{3})(\d)/, '$1 $2')
+      .replace(/(\d{4})(\d)/, '$1 $2')
+      .replace(/(\d{4})(\d)/, '$1 $2')
+      .substring(0, 18);
+  };
+
+  // Helper to format Cellphone: (00) 00000-0000 or (00) 0000-0000 (10 or 11 digits)
+  const formatPhone = (value: string) => {
+    const digits = value.replace(/\D/g, '').substring(0, 11);
+    if (digits.length <= 10) {
       return digits
-        .replace(/(\d{3})(\d)/, '$1.$2')
-        .replace(/(\d{3})(\d)/, '$1.$2')
-        .replace(/(\d{3})(\d{1,2})$/, '$1-$2')
+        .replace(/(\d{2})(\d)/, '($1) $2')
+        .replace(/(\d{4})(\d)/, '$1-$2')
         .substring(0, 14);
     } else {
-      // CNS: 000.0000.0000.0000
       return digits
-        .replace(/(\d{3})(\d)/, '$1.$2')
-        .replace(/(\d{4})(\d)/, '$1.$2')
-        .replace(/(\d{4})(\d)/, '$1.$2')
-        .substring(0, 18);
+        .replace(/(\d{2})(\d)/, '($1) $2')
+        .replace(/(\d{5})(\d)/, '$1-$2')
+        .substring(0, 15);
     }
   };
 
@@ -93,10 +112,14 @@ export default function PatientRegistration() {
     let finalValue = value;
 
     if (field === 'documentId') {
-      finalValue = formatDocument(value);
+      finalValue = formatCPF(value);
+    } else if (field === 'susCard') {
+      finalValue = formatCNS(value);
+    } else if (field === 'phone') {
+      finalValue = formatPhone(value);
     } else if (field === 'birthDate') {
       finalValue = formatDate(value);
-    } else if (field === 'fullName') {
+    } else if (field === 'fullName' || field === 'motherName') {
       finalValue = value.toUpperCase();
     }
 
@@ -153,8 +176,8 @@ export default function PatientRegistration() {
       return;
     }
 
-    if (!formData.fullName || !formData.birthDate || !formData.documentId) {
-      setError('Por favor, preencha os campos obrigatórios (Nome, Data de Nasc. e CPF).');
+    if (!formData.fullName || !formData.motherName || !formData.birthDate || !formData.documentId) {
+      setError('Por favor, preencha os campos obrigatórios (Nome, Nome da Mãe, Data de Nasc. e CPF).');
       return;
     }
 
@@ -337,65 +360,98 @@ export default function PatientRegistration() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="md:col-span-2">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Nome Completo</label>
+                <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">Nome Completo *</label>
                 <input 
                   type="text" 
-                  value={formData.fullName}
+                  value={formData.fullName || ''}
                   onChange={(e) => handleInputChange('fullName', e.target.value.toUpperCase())}
-                  placeholder="ex: JOÃO DA SILVA"
-                  className="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:border-[#4f46e5] focus:ring-1 focus:ring-[#4f46e5] outline-none transition-all placeholder:text-slate-300"
+                  placeholder="EX: JOÃO DA SILVA"
+                  className="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-sm font-bold text-slate-700 focus:border-[#4f46e5] focus:ring-1 focus:ring-[#4f46e5] outline-none transition-all placeholder:text-slate-300 uppercase"
                 />
               </div>
               <div className="md:col-span-1">
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">URL da Foto (Opcional)</label>
-                <input 
-                  type="text" 
-                  value={formData.photoUrl || ''}
-                  onChange={(e) => handleInputChange('photoUrl', e.target.value)}
-                  placeholder="https://exemplo.com/foto.jpg"
-                  className="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:border-[#4f46e5] focus:ring-1 focus:ring-[#4f46e5] outline-none transition-all placeholder:text-slate-300"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Data de Nascimento (DD/MM/AAAA)</label>
-                <input 
-                  type="text" 
-                  value={formData.birthDate}
-                  onChange={(e) => handleInputChange('birthDate', e.target.value)}
-                  placeholder="00/00/0000"
-                  className="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:border-[#4f46e5] focus:ring-1 focus:ring-[#4f46e5] outline-none transition-all placeholder:text-slate-300"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Idade</label>
-                <input 
-                  type="text" 
-                  placeholder="--"
-                  value={age ? `${age} anos` : ''}
-                  readOnly
-                  className="w-full border border-slate-200 bg-slate-50 rounded-lg px-4 py-2.5 text-sm outline-none transition-all cursor-not-allowed font-bold text-indigo-600"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Gênero</label>
+                <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">Gênero</label>
                 <select 
-                  value={formData.gender}
+                  value={formData.gender || 'Masculino'}
                   onChange={(e) => handleInputChange('gender', e.target.value)}
-                  className="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:border-[#4f46e5] focus:ring-1 focus:ring-[#4f46e5] outline-none transition-all appearance-none bg-white"
+                  className="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-sm font-bold text-slate-700 focus:border-[#4f46e5] focus:ring-1 focus:ring-[#4f46e5] outline-none transition-all appearance-none bg-white"
                 >
                   <option>Masculino</option>
                   <option>Feminino</option>
                   <option>Outro</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">CPF / CNS</label>
+
+              <div className="md:col-span-3">
+                <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">Nome da Mãe *</label>
                 <input 
                   type="text" 
-                  value={formData.documentId}
+                  value={formData.motherName || ''}
+                  onChange={(e) => handleInputChange('motherName', e.target.value.toUpperCase())}
+                  placeholder="NOME COMPLETO DA MÃE DO PACIENTE..."
+                  className="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-sm font-bold text-slate-700 focus:border-[#4f46e5] focus:ring-1 focus:ring-[#4f46e5] outline-none transition-all placeholder:text-slate-300 uppercase"
+                />
+              </div>
+
+              <div className="md:col-span-1">
+                <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">Data de Nascimento *</label>
+                <input 
+                  type="text" 
+                  value={formData.birthDate || ''}
+                  onChange={(e) => handleInputChange('birthDate', e.target.value)}
+                  placeholder="00/00/0000"
+                  className="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-sm font-bold text-slate-700 focus:border-[#4f46e5] focus:ring-1 focus:ring-[#4f46e5] outline-none transition-all placeholder:text-slate-300"
+                />
+              </div>
+              <div className="md:col-span-1">
+                <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">Idade</label>
+                <input 
+                  type="text" 
+                  placeholder="--"
+                  value={age ? `${age} anos` : ''}
+                  readOnly
+                  className="w-full border border-slate-200 bg-slate-50 rounded-lg px-4 py-2.5 text-sm outline-none transition-all cursor-not-allowed font-extrabold text-[#4f46e5]"
+                />
+              </div>
+              <div className="md:col-span-1">
+                <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">Telefone de Contato</label>
+                <input 
+                  type="text" 
+                  value={formData.phone || ''}
+                  onChange={(e) => handleInputChange('phone', e.target.value)}
+                  placeholder="(00) 00000-0000"
+                  className="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-sm font-bold text-slate-700 focus:border-[#4f46e5] focus:ring-1 focus:ring-[#4f46e5] outline-none transition-all placeholder:text-slate-300"
+                />
+              </div>
+
+              <div className="md:col-span-1">
+                <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">CPF *</label>
+                <input 
+                  type="text" 
+                  value={formData.documentId || ''}
                   onChange={(e) => handleInputChange('documentId', e.target.value)}
                   placeholder="000.000.000-00"
-                  className="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-sm focus:border-[#4f46e5] focus:ring-1 focus:ring-[#4f46e5] outline-none transition-all"
+                  className="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-sm font-bold text-slate-700 focus:border-[#4f46e5] focus:ring-1 focus:ring-[#4f46e5] outline-none transition-all"
+                />
+              </div>
+              <div className="md:col-span-1">
+                <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">CNS SUS (Cartão do SUS)</label>
+                <input 
+                  type="text" 
+                  value={formData.susCard || ''}
+                  onChange={(e) => handleInputChange('susCard', e.target.value)}
+                  placeholder="000 0000 0000 0000"
+                  className="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-sm font-bold text-slate-700 focus:border-[#4f46e5] focus:ring-1 focus:ring-[#4f46e5] outline-none transition-all font-mono"
+                />
+              </div>
+              <div className="md:col-span-1">
+                <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">URL da Foto (Opcional)</label>
+                <input 
+                  type="text" 
+                  value={formData.photoUrl || ''}
+                  onChange={(e) => handleInputChange('photoUrl', e.target.value)}
+                  placeholder="https://exemplo.com/foto.jpg"
+                  className="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-sm font-bold text-slate-700 focus:border-[#4f46e5] focus:ring-1 focus:ring-[#4f46e5] outline-none transition-all placeholder:text-slate-300"
                 />
               </div>
             </div>

@@ -95,5 +95,11 @@ service cloud.firestore {
       allow list, get: if isAdministrative();
       allow create, update, delete: if isProfessional();
     }
+
+    // --- Dentists ---
+    match /dentists/{dentistId} {
+      allow list, get: if isAdministrative();
+      allow create, update, delete: if isProfessional();
+    }
   }
 }

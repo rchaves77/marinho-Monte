@@ -1,0 +1,47 @@
+export interface DentalProcedure {
+  code: string;
+  name: string;
+}
+
+export const SIGTAP_PROCEDURES: DentalProcedure[] = [
+  { code: '0301010048', name: 'Consulta de profissional de nível superior na atenção especializada (exceto médico)' },
+  { code: '0301060061', name: 'Atendimento de urgência em atenção especializada (03.01.06.006-1)' },
+  { code: '0204010225', name: 'Radiografia periapical' },
+  { code: '0204010217', name: 'Radiografia interproximal (bite wing)' },
+  { code: '0204010160', name: 'Radiografia oclusal' },
+  { code: '0301100152', name: 'Retirada de pontos de cirurgias (por paciente)' },
+  { code: '0307040151', name: 'Ajuste oclusal' },
+  { code: '0414020120', name: 'Exodontia de dente decíduo' },
+  { code: '0414020138', name: 'Exodontia de dente permanente' },
+  { code: '0414020430', name: 'Exodontia de dente supranumerário' },
+  { code: '0414020146', name: 'Exodontia múltipla com alveoloplastia por sextante' },
+  { code: '0414020278', name: 'Remoção de dente retido (incluso / impactado)' },
+  { code: '0414020057', name: 'Correção de irregularidades de rebordo alveolar' },
+  { code: '0414020073', name: 'Curetagem periapical' },
+  { code: '0404020615', name: 'Redução de luxação têmporo-mandibular (04.04.02.061-5)' },
+  { code: '0201010526', name: 'Biópsia dos tecidos moles da boca' },
+  { code: '0404020054', name: 'Drenagem de abscesso da boca e anexos' },
+  { code: '0404020097', name: 'Excisão e sutura de lesão na boca' },
+  { code: '0401010066', name: 'Excisão e/ou sutura simples de pequenas lesões / ferimento' },
+  { code: '0414020359', name: 'Tratamento cirúrgico de hemorragia buco-dental' },
+  { code: '0307010066', name: 'Tratamento inicial do dente traumatizado' },
+  { code: '0414020243', name: 'Reimplante e transplante dental (por elemento)' },
+  { code: '0404020445', name: 'Contenção de dentes por splintagem' },
+  { code: '0414020383', name: 'Tratamento de alveolite' },
+  { code: '0307010058', name: 'Tratamento de nevralgias faciais' },
+  { code: '0307030083', name: 'Tratamento de pericoronarite' },
+  { code: '0414020405', name: 'Ulotomia / ulectomia' },
+  { code: '0307010147', name: 'Adequação do comportamento da pessoa com deficiência' },
+  { code: '0307010155', name: 'Adequação do comportamento de crianças' },
+  { code: '0307020010', name: 'Acesso a polpa dentária e medicação (por dente)' },
+  { code: '0307020070', name: 'Pulpotomia dentária' },
+  { code: '0101020090', name: 'Selamento provisório de cavidade dentária' },
+  { code: '0307020029', name: 'Curativo de demora com ou sem preparo biomecânico' },
+  { code: '0201010232', name: 'Biópsia de glândula salivar' },
+  { code: '0307010015', name: 'Capeamento pulpar' },
+  { code: '0307030075', name: 'Tratamento de lesões da mucosa oral' },
+  { code: '0307030059', name: 'Raspagem alisamento e polimento supragengivais (por sextante)' },
+  { code: '0307030024', name: 'Raspagem alisamento subgengivais (por sextante)' },
+  { code: '0307030067', name: 'Tratamento de gengivite ulcerativa necrosante aguda (GUNA)' },
+  { code: '0404020674', name: 'Reconstrução parcial do lábio traumatizado' }
+];

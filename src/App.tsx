@@ -14,6 +14,7 @@ import DentalReport from './pages/DentalReport';
 import MedicalRecord from './pages/MedicalRecord';
 import PatientsList from './pages/PatientsList';
 import MedicationManagement from './pages/MedicationManagement';
+import DentistsManagement from './pages/DentistsManagement';
 import { AuthProvider, useAuth } from './lib/AuthContext';
 
 function ProtectedRoute({ children, allowedRoles }: { children: React.ReactNode, allowedRoles?: string[] }) {
@@ -60,6 +61,7 @@ export default function App() {
             <Route path="/cadastro" element={<ProtectedRoute allowedRoles={['admin', 'professional']}><PatientRegistration /></ProtectedRoute>} />
             <Route path="/pacientes" element={<ProtectedRoute><PatientsList /></ProtectedRoute>} />
             <Route path="/prontuario/:id" element={<ProtectedRoute><MedicalRecord /></ProtectedRoute>} />
+            <Route path="/dentistas" element={<ProtectedRoute allowedRoles={['admin', 'professional']}><DentistsManagement /></ProtectedRoute>} />
             <Route path="/medicamentos" element={<ProtectedRoute><MedicationManagement /></ProtectedRoute>} />
             
             <Route path="/relatorio" element={<ProtectedRoute><DentalReport /></ProtectedRoute>} />

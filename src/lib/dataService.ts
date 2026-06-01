@@ -11,7 +11,8 @@ import {
   orderBy,
   limit,
   setDoc,
-  deleteDoc
+  deleteDoc,
+  collectionGroup
 } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from './firebase';
 
@@ -21,6 +22,9 @@ export interface Patient {
   birthDate: string;
   gender: string;
   documentId: string;
+  susCard?: string;
+  motherName?: string;
+  phone?: string;
   photoUrl?: string;
   address?: {
     street: string;
@@ -55,8 +59,18 @@ export interface Medication {
   createdAt?: any;
 }
 
+export interface Dentist {
+  id?: string;
+  name: string;
+  cro: string;
+  status: 'active' | 'inactive';
+  createdBy: string;
+  createdAt?: any;
+}
+
 const PATIENTS_COLLECTION = 'patients';
 const MEDICATIONS_COLLECTION = 'medications';
+const DENTISTS_COLLECTION = 'dentists';
 
 export const dataService = {
   // CREATE or UPDATE Patient
@@ -269,7 +283,10 @@ export const dataService = {
   async getRecordsByPatient(patientId: string) {
     const path = `patients/${patientId}/clinical_records`;
     try {
-      const q = query(collection(db, 'patients', patientId, 'clinical_records'));
+      const q = query(
+        collection(db, 'patients', patientId, 'clinical_records'),
+        orderBy('createdAt', 'desc')
+      );
       const querySnapshot = await getDocs(q);
       const records = querySnapshot.docs.map(doc => {
         const data = doc.data();
@@ -281,8 +298,7 @@ export const dataService = {
         } as ClinicalRecord & { _createdAt: number };
       });
       console.log(`Loaded ${records.length} records for patient ${patientId}`);
-      // Sort manually to avoid index requirement for now
-      return records.sort((a, b) => b._createdAt - a._createdAt);
+      return records;
     } catch (error) {
       console.error('Error fetching clinical records:', error);
       handleFirestoreError(error, OperationType.LIST, path);
@@ -350,6 +366,140 @@ export const dataService = {
       await deleteDoc(doc(db, MEDICATIONS_COLLECTION, medicationId));
     } catch (error) {
       handleFirestoreError(error, OperationType.DELETE, path);
+    }
+  },
+
+  // --- Dentist Management & Seeding ---
+  async saveDentist(dentist: Omit<Dentist, 'id' | 'createdAt'> & { id?: string }) {
+    const path = DENTISTS_COLLECTION;
+    try {
+      if (dentist.id) {
+        const { id, ...data } = dentist;
+        await updateDoc(doc(db, path, id), {
+          ...data,
+          updatedAt: serverTimestamp()
+        });
+        return id;
+      } else {
+        const docRef = await addDoc(collection(db, path), {
+          ...dentist,
+          createdAt: serverTimestamp()
+        });
+        return docRef.id;
+      }
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, path);
+    }
+  },
+
+  async getDentists() {
+    const path = DENTISTS_COLLECTION;
+    try {
+      const q = query(collection(db, path), orderBy('name', 'asc'));
+      const querySnapshot = await getDocs(q);
+      
+      let list = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Dentist));
+      
+      // Auto seed if empty
+      if (list.length === 0) {
+        const seed1 = {
+          name: 'DRA. ANNY KAROLLINY LOPES CABRAL',
+          cro: 'CRO/AC 1279',
+          status: 'active' as const,
+          createdBy: 'system'
+        };
+        const seed2 = {
+          name: 'DR. RÔMULO CHAVES DA SILVA',
+          cro: 'CRO/AC - 975',
+          status: 'active' as const,
+          createdBy: 'system'
+        };
+        
+        const doc1 = await addDoc(collection(db, path), { ...seed1, createdAt: serverTimestamp() });
+        const doc2 = await addDoc(collection(db, path), { ...seed2, createdAt: serverTimestamp() });
+        
+        list = [
+          { id: doc1.id, ...seed1 },
+          { id: doc2.id, ...seed2 }
+        ].sort((a,b) => a.name.localeCompare(b.name));
+      }
+      
+      return list;
+    } catch (error) {
+      handleFirestoreError(error, OperationType.LIST, path);
+    }
+  },
+
+  async deleteDentist(dentistId: string) {
+    const path = `${DENTISTS_COLLECTION}/${dentistId}`;
+    try {
+      await deleteDoc(doc(db, DENTISTS_COLLECTION, dentistId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, path);
+    }
+  },
+
+  async getAllEvolutionsForReport() {
+    try {
+      // 1. Fetch all clinical records via collection group
+      const recordsSnap = await getDocs(collectionGroup(db, 'clinical_records'));
+      const rawRecords = recordsSnap.docs.map(doc => {
+        const data = doc.data();
+        const patientId = doc.ref.parent.parent?.id || data.patientId;
+        return {
+          id: doc.id,
+          patientId,
+          ...data,
+          // Extract timestamp correctly
+          _createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : (data.createdAt?.seconds ? data.createdAt.seconds * 1000 : Date.now())
+        };
+      });
+
+      // Filter just type === 'evolution' in memory (index-free & safe)
+      const evolutionRecords = rawRecords.filter((r: any) => r.type === 'evolution');
+
+      // 2. Fetch all patients to pair details
+      // Since patients list is usually small to moderate, the list call or separate mapping is efficient
+      const patientsSnap = await getDocs(collection(db, 'patients'));
+      const patientsMap = new Map<string, any>();
+      patientsSnap.docs.forEach(doc => {
+        patientsMap.set(doc.id, { id: doc.id, ...doc.data() });
+      });
+
+      // 3. Pair records with patient info
+      const results = evolutionRecords.map((rec: any) => {
+        const pat = patientsMap.get(rec.patientId) || {};
+        const addr = pat.address;
+        const formatFullAddress = (a: any) => {
+          if (!a) return '---';
+          const parts = [
+            a.street,
+            a.number ? `Nº ${a.number}` : '',
+            a.neighborhood,
+            a.city,
+            a.state ? `- ${a.state}` : ''
+          ].filter(Boolean).join(', ');
+          return parts || '---';
+        };
+
+        return {
+          ...rec,
+          patientName: pat.fullName || 'Paciente Desconhecido',
+          patientMotherName: pat.motherName || '---',
+          patientBirth: pat.birthDate || '---',
+          patientCpf: pat.documentId || '---',
+          patientSusCard: pat.susCard || '---',
+          patientPhone: pat.phone || '---',
+          patientFullAddress: formatFullAddress(addr),
+          cbo: '2232-88' // Fixed CBO for Cirurgião-Dentista Clínico Geral
+        };
+      });
+
+      // Sort by date descending
+      return results.sort((a, b) => b._createdAt - a._createdAt);
+    } catch (error) {
+      console.error('Error fetching all evolutions for report:', error);
+      return [];
     }
   }
 };

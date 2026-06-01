@@ -31,6 +31,7 @@ export const NAV_ITEMS = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/' },
   { id: 'patients', label: 'Prontuários', icon: History, path: '/pacientes' },
   { id: 'registration', label: 'Novo Cadastro', icon: UserPlus, path: '/cadastro' },
+  { id: 'dentists', label: 'Cirurgiões Dentistas', icon: Stethoscope, path: '/dentistas' },
   { id: 'medications', label: 'Medicamentos', icon: Pill, path: '/medicamentos' },
   { id: 'report', label: 'Relatórios', icon: FileText, path: '/relatorio' },
 ];

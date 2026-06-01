@@ -24,13 +24,15 @@ import {
   Camera,
   Database,
   Image as ImageIcon,
-  Edit2
+  Edit2,
+  X
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { dataService, Patient, ClinicalRecord, Medication } from '../lib/dataService';
+import { dataService, Patient, ClinicalRecord, Medication, Dentist } from '../lib/dataService';
 import { useAuth } from '../lib/AuthContext';
 import TemplatePicker from '../components/TemplatePicker';
 import MedicationPicker from '../components/MedicationPicker';
+import { SIGTAP_PROCEDURES, DentalProcedure } from '../constants/procedures';
 
 type TabType = 'resumo' | 'anamnese' | 'evolucao' | 'prescricao' | 'alta';
 
@@ -56,6 +58,8 @@ export default function MedicalRecord() {
     const offset = now.getTimezoneOffset() * 60000;
     return new Date(now.getTime() - offset).toISOString().slice(0, 16);
   });
+  const [dentistsList, setDentistsList] = useState<Dentist[]>([]);
+  const [selectedDentist, setSelectedDentist] = useState<string>('');
   const navigate = useNavigate();
 
   // Form States
@@ -92,6 +96,9 @@ export default function MedicalRecord() {
     additionalNotes: ''
   });
   const [evolutionText, setEvolutionText] = useState('');
+  const [selectedProcedures, setSelectedProcedures] = useState<DentalProcedure[]>([]);
+  const [procedureSearchTerm, setProcedureSearchTerm] = useState('');
+  const [isProcedureDropdownOpen, setIsProcedureDropdownOpen] = useState(false);
   const [prescriptionForm, setPrescriptionForm] = useState({ medicationName: '', dosage: '', instructions: '' });
   
   // Template States
@@ -133,6 +140,19 @@ export default function MedicalRecord() {
         const r = await dataService.getRecordsByPatient(patientId);
         setRecords(r || []);
       }
+      
+      const dList = await dataService.getDentists();
+      setDentistsList(dList || []);
+      if (dList && dList.length > 0) {
+        const uName = user?.displayName?.toUpperCase();
+        const matched = dList.find(d => uName && d.name.toUpperCase().includes(uName));
+        if (matched) {
+          setSelectedDentist(matched.name);
+        } else {
+          const activeD = dList.find(d => d.status === 'active');
+          setSelectedDentist(activeD ? activeD.name : dList[0].name);
+        }
+      }
     } catch (err: any) {
       console.error(err);
       setError('Erro ao carregar dados do prontuário. Verifique suas permissões ou conexão.');
@@ -158,7 +178,7 @@ export default function MedicalRecord() {
         type: typeMap[tabType],
         data,
         createdBy: user.uid,
-        professionalName: user.displayName || 'Profissional',
+        professionalName: selectedDentist || user.displayName || 'Profissional',
         createdAt: new Date(attendanceDate)
       });
       setSuccess(true);
@@ -171,7 +191,10 @@ export default function MedicalRecord() {
       setAttendanceDate(new Date(now.getTime() - offset).toISOString().slice(0, 16));
 
       // Reset forms if needed
-      if (tabType === 'evolucao') setEvolutionText('');
+      if (tabType === 'evolucao') {
+        setEvolutionText('');
+        setSelectedProcedures([]);
+      }
       if (tabType === 'prescricao') setPrescriptionForm({ medicationName: '', dosage: '', instructions: '' });
       
       setActiveTab('resumo');
@@ -444,23 +467,52 @@ export default function MedicalRecord() {
       </div>
 
       {activeTab !== 'resumo' && (
-        <div className="bg-[#f8fafc] border border-slate-200/60 p-5 rounded-[1.5rem] flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100/40 text-indigo-600 flex items-center justify-center">
-              <Calendar size={18} />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Data e Hora */}
+          <div className="bg-[#f8fafc] border border-slate-200/60 p-5 rounded-[1.5rem] flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100/40 text-indigo-600 flex items-center justify-center">
+                <Calendar size={18} />
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-0.5">Data e Hora do Atendimento</p>
+                <p className="text-[11px] font-bold text-slate-500">Mude se for retroativo</p>
+              </div>
             </div>
             <div>
-              <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-0.5">Data e Hora do Atendimento</p>
-              <p className="text-xs font-bold text-slate-500">Altere para registrar este atendimento retroativamente</p>
+              <input 
+                type="datetime-local"
+                value={attendanceDate}
+                onChange={(e) => setAttendanceDate(e.target.value)}
+                className="bg-white border border-slate-200 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-mono"
+              />
             </div>
           </div>
-          <div>
-            <input 
-              type="datetime-local"
-              value={attendanceDate}
-              onChange={(e) => setAttendanceDate(e.target.value)}
-              className="bg-white border border-slate-200 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-mono"
-            />
+
+          {/* Cirurgião Dentista */}
+          <div className="bg-[#f8fafc] border border-slate-200/60 p-5 rounded-[1.5rem] flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100/40 text-indigo-600 flex items-center justify-center">
+                <Stethoscope size={18} />
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-0.5">Cirurgião-Dentista Responsável</p>
+                <p className="text-[11px] font-bold text-slate-500">Selecione o profissional</p>
+              </div>
+            </div>
+            <div className="flex-1 max-w-[240px]">
+              <select 
+                value={selectedDentist}
+                onChange={(e) => setSelectedDentist(e.target.value)}
+                className="w-full bg-white border border-slate-200 px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+              >
+                {dentistsList.map(d => (
+                  <option key={d.id} value={d.name}>
+                    {d.name.toUpperCase()} ({d.cro})
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       )}
@@ -561,7 +613,28 @@ export default function MedicalRecord() {
                               <h4 className="font-bold text-slate-800 uppercase text-xs mb-3">{record.type.replace('anamnesis', 'Anamnese').replace('evolution', 'Evolução').replace('prescription', 'Prescrição').replace('discharge', 'Alta')}</h4>
                               
                               <div className="text-sm text-slate-600 leading-relaxed max-w-2xl">
-                                {record.type === 'evolution' && <span>{record.data.text}</span>}
+                                {record.type === 'evolution' && (
+                                  <div className="space-y-3">
+                                    <p className="text-slate-700 whitespace-pre-wrap">{record.data.text}</p>
+                                    {record.data.procedures && record.data.procedures.length > 0 && (
+                                      <div className="space-y-1.5 pt-1">
+                                        <p className="text-[9px] font-black uppercase text-slate-400 tracking-widest">Procedimentos Realizados (SIGTAP)</p>
+                                        <div className="flex flex-wrap gap-1.5">
+                                          {record.data.procedures.map((proc: any, pIdx: number) => (
+                                            <span 
+                                              key={pIdx} 
+                                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-100 text-[10px] text-indigo-700 font-bold uppercase tracking-tight"
+                                              title={proc.name}
+                                            >
+                                              <span className="font-mono text-[9px] bg-indigo-200/50 px-1 py-0.5 rounded text-indigo-800">{proc.code}</span>
+                                              <span className="truncate max-w-[280px]">{proc.name}</span>
+                                            </span>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
                                 {record.type === 'prescription' && <span>{record.data.medicationName} - {record.data.dosage}</span>}
                                 {record.type === 'anamnesis' && (
                                   <div className="space-y-1">
@@ -878,9 +951,140 @@ export default function MedicalRecord() {
                 placeholder="Descreva a evolução..."
                 className="w-full bg-slate-50 border border-slate-200 rounded-3xl p-6 text-sm focus:bg-white focus:ring-2 focus:ring-emerald-500 outline-none transition-all resize-none"
               ></textarea>
-              <button onClick={() => handleSaveRecord('evolucao', { text: evolutionText })} disabled={saving || !evolutionText} className="mt-8 px-10 py-4 bg-emerald-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-3">
-                 {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Registrar Evolução
-              </button>
+
+              {/* Procedimentos Realizados (SIGTAP) Selector */}
+              <div className="space-y-4 border-t border-slate-100 pt-6">
+                <div>
+                  <h5 className="text-xs font-black uppercase text-indigo-600 tracking-widest flex items-center gap-1.5 mb-1">
+                    <Stethoscope size={14} /> Procedimentos Realizados neste Atendimento (SIGTAP)
+                  </h5>
+                  <p className="text-[11px] text-slate-400 font-bold">Selecione os códigos de faturamento SIGTAP correspondentes a esta consulta.</p>
+                </div>
+
+                <div className="relative">
+                  <div className="flex gap-2">
+                    <input 
+                      type="text"
+                      placeholder="Pesquise por código ou nome do procedimento (ex: exodontia, radiografia, 041402)..."
+                      value={procedureSearchTerm}
+                      onChange={(e) => {
+                        setProcedureSearchTerm(e.target.value);
+                        setIsProcedureDropdownOpen(true);
+                      }}
+                      onFocus={() => setIsProcedureDropdownOpen(true)}
+                      className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-700 outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500 transition-all placeholder:text-slate-300 shadow-sm"
+                    />
+                    {procedureSearchTerm && (
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setProcedureSearchTerm('');
+                          setIsProcedureDropdownOpen(false);
+                        }}
+                        className="px-3 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl transition-all"
+                      >
+                        Limpar
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Dropdown containing filtered procedures */}
+                  <AnimatePresence>
+                    {isProcedureDropdownOpen && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        className="absolute z-20 left-0 right-0 mt-2 max-h-64 overflow-y-auto bg-white border border-slate-200 rounded-2xl shadow-xl divide-y divide-slate-50/50"
+                      >
+                        {SIGTAP_PROCEDURES.filter(proc => {
+                          const s = procedureSearchTerm.toLowerCase();
+                          return proc.code.includes(s) || proc.name.toLowerCase().includes(s);
+                        }).slice(0, 8).map((proc) => {
+                          const isAlreadySelected = selectedProcedures.some(p => p.code === proc.code);
+                          return (
+                            <button
+                              key={proc.code}
+                              type="button"
+                              onClick={() => {
+                                if (!isAlreadySelected) {
+                                  setSelectedProcedures([...selectedProcedures, proc]);
+                                }
+                                setProcedureSearchTerm('');
+                                setIsProcedureDropdownOpen(false);
+                              }}
+                              className="w-full text-left px-4 py-3.5 hover:bg-indigo-50/50 transition-colors flex items-center justify-between text-xs font-bold text-slate-700"
+                            >
+                              <div className="flex items-start gap-3">
+                                <span className="font-mono text-[10px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded shrink-0">
+                                  {proc.code}
+                                </span>
+                                <span className="text-slate-700 truncate max-w-[360px] md:max-w-[480px]">
+                                  {proc.name}
+                                </span>
+                              </div>
+                              {isAlreadySelected ? (
+                                <span className="text-emerald-500 text-[10px] uppercase font-black tracking-widest flex items-center gap-1">
+                                  <Check size={12} /> Selecionado
+                                </span>
+                              ) : (
+                                <span className="text-slate-300 text-[10px] uppercase font-black tracking-widest hover:text-indigo-600 transition-colors">
+                                  Selecionar
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                        {SIGTAP_PROCEDURES.filter(proc => {
+                          const s = procedureSearchTerm.toLowerCase();
+                          return proc.code.includes(s) || proc.name.toLowerCase().includes(s);
+                        }).length === 0 && (
+                          <div className="p-4 text-center text-xs text-slate-400 font-bold">
+                            Nenhum procedimento encontrado correspondente à pesquisa.
+                          </div>
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Selected Procedures Row */}
+                {selectedProcedures.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Procedimentos Selecionados ({selectedProcedures.length})</p>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedProcedures.map((proc) => (
+                        <div 
+                          key={proc.code}
+                          className="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-100 pl-1.5 pr-2.5 py-1 rounded-xl text-xs font-bold text-indigo-800"
+                        >
+                          <span className="font-mono text-[10px] bg-indigo-200 text-indigo-800 px-1.5 py-0.5 rounded font-black">
+                            {proc.code}
+                          </span>
+                          <span className="truncate max-w-[200px] md:max-w-xs">{proc.name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedProcedures(selectedProcedures.filter(p => p.code !== proc.code))}
+                            className="p-0.5 hover:bg-indigo-100 rounded-full text-indigo-400 hover:text-indigo-850 transition-colors"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end pt-4">
+                <button 
+                  onClick={() => handleSaveRecord('evolucao', { text: evolutionText, procedures: selectedProcedures })} 
+                  disabled={saving || !evolutionText} 
+                  className="px-10 py-4 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-3 transition-colors shadow-lg shadow-emerald-50"
+                >
+                   {saving ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />} Registrar Evolução
+                </button>
+              </div>
             </div>
           )}
 
@@ -1009,6 +1213,27 @@ export default function MedicalRecord() {
           setIsMedicationPickerOpen(false);
         }}
       />
+
+      {/* Floating Success Notification with framer-motion fade-in and scale */}
+      <AnimatePresence>
+        {success && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: -20 }}
+            transition={{ type: 'spring', stiffness: 350, damping: 25 }}
+            className="fixed bottom-8 right-8 z-50 flex items-center gap-4 bg-emerald-600 border border-emerald-500 text-white pl-4 pr-6 py-4 rounded-2xl shadow-2xl shadow-emerald-950/15"
+          >
+            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center shrink-0 shadow-inner">
+              <Check size={18} className="text-white" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-emerald-100 leading-none mb-1">Sucesso</p>
+              <p className="text-xs font-bold text-white leading-normal">O prontuário clínico foi registrado com êxito!</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

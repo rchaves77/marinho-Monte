@@ -25,7 +25,8 @@ import {
   Database,
   Image as ImageIcon,
   Edit2,
-  X
+  X,
+  Star
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { dataService, Patient, ClinicalRecord, Medication, Dentist } from '../lib/dataService';
@@ -51,6 +52,9 @@ export default function MedicalRecord() {
   const [isEditingPhoto, setIsEditingPhoto] = useState(false);
   const [isMedicationPickerOpen, setIsMedicationPickerOpen] = useState(false);
   const [newPhotoUrl, setNewPhotoUrl] = useState('');
+  const [isEditingClinicalAlerts, setIsEditingClinicalAlerts] = useState(false);
+  const [alergyInput, setAlergyInput] = useState('');
+  const [comorbidityInput, setComorbidityInput] = useState('');
   const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
   const [editingRecordDate, setEditingRecordDate] = useState<string>('');
   const [attendanceDate, setAttendanceDate] = useState<string>(() => {
@@ -100,6 +104,36 @@ export default function MedicalRecord() {
   const [procedureSearchTerm, setProcedureSearchTerm] = useState('');
   const [isProcedureDropdownOpen, setIsProcedureDropdownOpen] = useState(false);
   const [prescriptionForm, setPrescriptionForm] = useState({ medicationName: '', dosage: '', instructions: '' });
+  const [medications, setMedications] = useState<Medication[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [favorites, setFavorites] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('med_favorites');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const toggleFavorite = (medName: string) => {
+    const nextFavs = favorites.includes(medName)
+      ? favorites.filter(n => n !== medName)
+      : [...favorites, medName];
+    setFavorites(nextFavs);
+    localStorage.setItem('med_favorites', JSON.stringify(nextFavs));
+  };
+
+  useEffect(() => {
+    const fetchMedications = async () => {
+      try {
+        const data = await dataService.getMedications();
+        setMedications(data || []);
+      } catch (err) {
+        console.error('Error fetching medications:', err);
+      }
+    };
+    fetchMedications();
+  }, []);
   
   // Template States
   const [activePicker, setActivePicker] = useState<'reason'|'evolution'|'prescription'|null>(null);
@@ -158,6 +192,27 @@ export default function MedicalRecord() {
       setError('Erro ao carregar dados do prontuário. Verifique suas permissões ou conexão.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveClinicalAlerts = async () => {
+    if (!patient || !user) return;
+    setSaving(true);
+    try {
+      await dataService.savePatient({
+        ...patient,
+        allergies: alergyInput,
+        comorbidities: comorbidityInput
+      } as any);
+      setPatient(prev => prev ? { ...prev, allergies: alergyInput, comorbidities: comorbidityInput } : null);
+      setIsEditingClinicalAlerts(false);
+      setSuccess(true);
+      setTimeout(() => setSuccess(false), 2000);
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao salvar alertas clínicos.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -336,6 +391,63 @@ export default function MedicalRecord() {
                 <User size={14} className="opacity-40" />
                 <span className="text-sm font-bold">{patient.companionName || 'Sem acompanhante'}</span>
               </div>
+            </div>
+
+            {/* Alertas Clínicos */}
+            <div className="flex flex-wrap gap-2.5 mt-4 justify-center md:justify-start">
+              {patient.allergies ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAlergyInput(patient.allergies || '');
+                    setComorbidityInput(patient.comorbidities || '');
+                    setIsEditingClinicalAlerts(true);
+                  }}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-red-50 border border-red-200 text-red-700 font-extrabold text-[10px] uppercase tracking-wider hover:bg-red-100 transition-all shadow-sm shrink-0"
+                >
+                  <span className="w-2 h-2 rounded-full bg-red-500 inline-block animate-pulse shrink-0" />
+                  ⚠️ Alergia: {patient.allergies}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAlergyInput(patient.allergies || '');
+                    setComorbidityInput(patient.comorbidities || '');
+                    setIsEditingClinicalAlerts(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-400 font-bold text-[10px] hover:bg-slate-100 hover:text-slate-600 transition-all border-dashed uppercase tracking-wider shrink-0"
+                >
+                  <span>⚠️ Cadastrar Alergias</span>
+                </button>
+              )}
+
+              {patient.comorbidities ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAlergyInput(patient.allergies || '');
+                    setComorbidityInput(patient.comorbidities || '');
+                    setIsEditingClinicalAlerts(true);
+                  }}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-850 font-extrabold text-[10px] uppercase tracking-wider hover:bg-amber-100 transition-all shadow-sm shrink-0"
+                >
+                  <span className="w-2 h-2 rounded-full bg-amber-500 inline-block shrink-0" />
+                  🩺 Comorbidade: {patient.comorbidities}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAlergyInput(patient.allergies || '');
+                    setComorbidityInput(patient.comorbidities || '');
+                    setIsEditingClinicalAlerts(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-400 font-bold text-[10px] hover:bg-slate-100 hover:text-slate-600 transition-all border-dashed uppercase tracking-wider shrink-0"
+                >
+                  <span>🩺 Cadastrar Comorbidades</span>
+                </button>
+              )}
             </div>
           </div>
           <div className="flex gap-2">
@@ -1095,18 +1207,26 @@ export default function MedicalRecord() {
                 <h4 className="text-sm font-black uppercase text-indigo-400 tracking-widest flex items-center gap-2">
                   <Pill size={16} /> Nova Prescrição
                 </h4>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <button 
                     onClick={() => setIsMedicationPickerOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-600/20 text-indigo-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-600/30 transition-all border border-indigo-500/20"
+                    className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600/30 text-indigo-300 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-600/50 transition-all border border-indigo-500/20"
                   >
-                    <Database size={14} /> Banco de Medicamentos
+                    <Database size={13} /> Pesquisar no Banco
                   </button>
+                  <a 
+                    href="/medicamentos" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-3 py-1.5 bg-emerald-600/30 text-emerald-300 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600/50 transition-all border border-emerald-550/20"
+                  >
+                    <Pill size={13} /> Gerenciar Banco (Nova Guia)
+                  </a>
                   <button 
                     onClick={() => setActivePicker('prescription')}
-                    className="flex items-center gap-2 px-4 py-2 bg-white/5 text-white/70 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all border border-white/5"
+                    className="flex items-center gap-2 px-3 py-1.5 bg-white/5 text-white/70 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all border border-white/5"
                   >
-                    <LayoutTemplate size={14} /> Modelos de Receituário
+                    <LayoutTemplate size={13} /> Modelos de Receituário
                   </button>
                   {prescriptionForm.instructions && prescriptionForm.instructions.length > 5 && (
                     <button 
@@ -1118,16 +1238,121 @@ export default function MedicalRecord() {
                   )}
                 </div>
               </div>
+
+              {/* Favoritos / Atalhos Rápidos */}
+              {favorites.length > 0 && (
+                <div className="space-y-3 bg-white/5 rounded-[1.5rem] p-5 border border-white/10">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest flex items-center gap-1">
+                      <Star size={12} className="fill-amber-400" /> Prescrever Favoritos (Atalhos Rápidos)
+                    </span>
+                    <span className="text-[9px] text-slate-400 font-bold">(Clique para preencher a prescrição instantaneamente para ajuste)</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {medications.filter(med => favorites.includes(med.name)).map(med => (
+                      <div key={med.id || med.name} className="flex items-center gap-1 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 pr-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPrescriptionForm({
+                              medicationName: med.name,
+                              dosage: med.defaultQuantity,
+                              instructions: med.defaultPosology
+                            });
+                          }}
+                          className="px-4 py-2 text-indigo-200 hover:text-white text-xs font-semibold transition-all flex items-center gap-2 active:scale-95 text-left"
+                        >
+                          <Pill size={12} className="text-indigo-400" />
+                          <span>{med.name}</span>
+                          <span className="text-[9px] text-slate-400">({med.defaultQuantity})</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleFavorite(med.name)}
+                          className="p-1.5 hover:bg-red-500/20 text-rose-400 hover:text-rose-300 rounded-lg transition-all"
+                          title="Remover dos favoritos"
+                        >
+                          <X size={10} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div>
+                <div className="relative">
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Medicamento</label>
                   <input 
                     type="text" 
                     value={prescriptionForm.medicationName}
-                    onChange={(e) => setPrescriptionForm(p => ({ ...p, medicationName: e.target.value }))}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setPrescriptionForm(p => ({ ...p, medicationName: val }));
+                      setShowSuggestions(val.length > 0);
+                    }}
+                    onFocus={() => {
+                      if (prescriptionForm.medicationName.length > 0) {
+                        setShowSuggestions(true);
+                      }
+                    }}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 250)}
                     placeholder="Ex: Amoxicilina 500mg"
                     className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white placeholder:text-slate-600 outline-none focus:ring-2 focus:ring-indigo-500 transition-all font-bold"
                   />
+                  {showSuggestions && (
+                    <div className="absolute left-0 right-0 top-[100%] mt-2 bg-slate-800 border border-slate-700 rounded-2xl shadow-2xl z-50 max-h-60 overflow-y-auto overflow-x-hidden p-2">
+                      {medications
+                        .filter(med => med.name.toLowerCase().includes(prescriptionForm.medicationName.toLowerCase()))
+                        .slice(0, 5)
+                        .map(med => (
+                          <div 
+                            key={med.id || med.name}
+                            className="flex items-center justify-between w-full text-left p-3 hover:bg-slate-700/60 rounded-xl transition-all cursor-pointer"
+                            onMouseDown={() => {
+                              setPrescriptionForm({
+                                medicationName: med.name,
+                                dosage: med.defaultQuantity,
+                                instructions: med.defaultPosology
+                              });
+                              setShowSuggestions(false);
+                            }}
+                          >
+                            <div className="flex items-center gap-3">
+                              <Pill size={14} className="text-slate-400" />
+                              <div>
+                                <p className="text-sm font-bold text-white">{med.name}</p>
+                                <p className="text-[10px] text-slate-400 font-medium">
+                                  {med.category} • {med.defaultQuantity}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onMouseDown={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  toggleFavorite(med.name);
+                                }}
+                                className="p-1.5 hover:bg-slate-700 rounded-lg text-amber-500"
+                              >
+                                <Star 
+                                  size={14} 
+                                  className={favorites.includes(med.name) ? 'fill-amber-400 text-amber-500' : 'text-slate-500'} 
+                                />
+                              </button>
+                              <span className="text-[9px] font-black uppercase text-indigo-400 tracking-wider">Selecionar</span>
+                            </div>
+                          </div>
+                        ))}
+                      {medications.filter(med => med.name.toLowerCase().includes(prescriptionForm.medicationName.toLowerCase())).length === 0 && (
+                        <div className="p-4 text-center text-xs text-slate-500">
+                          Nenhum medicamento encontrado no banco.
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest block mb-2">Dosagem / Posologia</label>
@@ -1213,6 +1438,86 @@ export default function MedicalRecord() {
           setIsMedicationPickerOpen(false);
         }}
       />
+
+      {/* Modal de Alertas Clínicos (Alergias e Comorbidades) */}
+      <AnimatePresence>
+        {isEditingClinicalAlerts && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }}
+              onClick={() => setIsEditingClinicalAlerts(false)}
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0 }} 
+              animate={{ scale: 1, opacity: 1 }} 
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative w-full max-w-md bg-white rounded-[2rem] shadow-2xl p-8 overflow-hidden z-10"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
+                    <HeartPulse size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-slate-900 text-xs uppercase tracking-widest">Alertas de Saúde</h3>
+                    <p className="text-[10px] text-slate-400 font-bold">Gerenciar alergias e comorbidades</p>
+                  </div>
+                </div>
+                <button onClick={() => setIsEditingClinicalAlerts(false)} className="text-slate-300 hover:text-slate-900 transition-colors">
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="space-y-5">
+                <div>
+                  <label className="text-[10px] font-black text-rose-600 uppercase tracking-widest block mb-2">⚠️ Alergias do Paciente</label>
+                  <input 
+                    type="text" 
+                    value={alergyInput}
+                    onChange={(e) => setAlergyInput(e.target.value)}
+                    placeholder="Ex: Dipirona, Penicilina, Corantes (ou deixe vazio)"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:bg-white focus:ring-2 focus:ring-rose-500 outline-none transition-all placeholder:text-slate-300 text-slate-800 font-medium"
+                  />
+                  <span className="text-[9px] text-rose-450 font-bold mt-1 block">Aparecerá como alerta vermelho destacado no prontuário.</span>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-amber-600 uppercase tracking-widest block mb-2">🩺 Comorbidades Crônicas</label>
+                  <input 
+                    type="text" 
+                    value={comorbidityInput}
+                    onChange={(e) => setComorbidityInput(e.target.value)}
+                    placeholder="Ex: Diabetes II, HAS, Asma Crônica (ou deixe vazio)"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:bg-white focus:ring-2 focus:ring-amber-500 outline-none transition-all placeholder:text-slate-300 text-slate-800 font-medium"
+                  />
+                  <span className="text-[9px] text-amber-600 font-bold mt-1 block">Aparecerá como alerta âmbar destacado no prontuário.</span>
+                </div>
+              </div>
+
+              <div className="mt-8 flex gap-3">
+                <button 
+                  type="button"
+                  onClick={() => setIsEditingClinicalAlerts(false)}
+                  className="flex-1 py-3 text-slate-500 font-bold text-xs uppercase tracking-widest hover:bg-slate-55 rounded-xl transition-all border border-slate-100"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="button"
+                  onClick={handleSaveClinicalAlerts}
+                  disabled={saving}
+                  className="flex-1 py-3 bg-indigo-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-indigo-100 flex items-center justify-center gap-2 hover:bg-indigo-700 transition-all disabled:opacity-50"
+                >
+                  {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} Salvar Alertas
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Floating Success Notification with framer-motion fade-in and scale */}
       <AnimatePresence>

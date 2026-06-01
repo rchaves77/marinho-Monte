@@ -6,7 +6,8 @@ import {
   Loader2, 
   ChevronRight,
   Database,
-  Info
+  Info,
+  Star
 } from 'lucide-react';
 import { dataService, Medication } from '../lib/dataService';
 import { motion, AnimatePresence } from 'motion/react';
@@ -24,10 +25,25 @@ export default function MedicationPicker({ isOpen, onClose, onSelect }: Medicati
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [favorites, setFavorites] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('med_favorites');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
   useEffect(() => {
     if (isOpen) {
       loadMedications();
+      // Sync favorites with localStorage in case it changed on the main screen
+      try {
+        const saved = localStorage.getItem('med_favorites');
+        if (saved) setFavorites(JSON.parse(saved));
+      } catch (err) {
+        console.error(err);
+      }
     }
   }, [isOpen]);
 
@@ -43,8 +59,19 @@ export default function MedicationPicker({ isOpen, onClose, onSelect }: Medicati
     }
   };
 
+  const toggleFavorite = (medName: string) => {
+    const nextFavs = favorites.includes(medName)
+      ? favorites.filter(n => n !== medName)
+      : [...favorites, medName];
+    setFavorites(nextFavs);
+    localStorage.setItem('med_favorites', JSON.stringify(nextFavs));
+  };
+
   const filteredMedications = medications.filter(med => {
     const matchesSearch = med.name.toLowerCase().includes(searchTerm.toLowerCase());
+    if (selectedCategory === 'favorites') {
+      return favorites.includes(med.name) && matchesSearch;
+    }
     const matchesCategory = selectedCategory === 'all' || med.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
@@ -90,6 +117,14 @@ export default function MedicationPicker({ isOpen, onClose, onSelect }: Medicati
                 />
               </div>
               <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                <button 
+                  onClick={() => setSelectedCategory('favorites')}
+                  className={`px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                    selectedCategory === 'favorites' ? 'bg-amber-500 text-white shadow-md' : 'bg-amber-50 text-amber-600 hover:bg-amber-100'
+                  }`}
+                >
+                  <Star size={10} className={selectedCategory === 'favorites' ? "fill-white" : "fill-amber-500 text-amber-500"} /> Favoritos
+                </button>
                 {["all", ...CATEGORIES].map(cat => (
                   <button 
                     key={cat}
@@ -113,10 +148,10 @@ export default function MedicationPicker({ isOpen, onClose, onSelect }: Medicati
               ) : filteredMedications.length > 0 ? (
                 <div className="grid grid-cols-1 gap-2">
                   {filteredMedications.map(med => (
-                    <button
+                    <div
                       key={med.id}
                       onClick={() => onSelect(med)}
-                      className="group flex flex-col md:flex-row md:items-center justify-between p-5 rounded-2xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all text-left relative overflow-hidden"
+                      className="group flex flex-col md:flex-row md:items-center justify-between p-5 rounded-2xl border border-slate-100 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all text-left relative overflow-hidden cursor-pointer"
                     >
                       <div className="absolute top-0 left-0 w-1 h-full bg-indigo-600 opacity-0 group-hover:opacity-100 transition-all" />
                       <div className="flex items-center gap-4">
@@ -136,13 +171,31 @@ export default function MedicationPicker({ isOpen, onClose, onSelect }: Medicati
                           </div>
                         </div>
                       </div>
-                      <div className="mt-3 md:mt-0 max-w-xs bg-white/50 p-2 rounded-xl border border-dotted border-indigo-100">
-                        <p className="text-[10px] text-slate-500 leading-tight italic group-hover:text-indigo-600 transition-colors">
-                           {med.defaultPosology}
-                        </p>
+                      <div className="mt-3 md:mt-0 flex items-center gap-4">
+                        <div className="max-w-xs bg-white/50 p-2 rounded-xl border border-dotted border-indigo-100">
+                          <p className="text-[10px] text-slate-500 leading-tight italic group-hover:text-indigo-600 transition-colors">
+                             {med.defaultPosology}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavorite(med.name);
+                            }}
+                            className="p-2 bg-slate-50 hover:bg-amber-50 rounded-xl transition-all text-amber-500 group-hover:bg-amber-100/40 relative z-10"
+                            title={favorites.includes(med.name) ? "Remover dos favoritos" : "Adicionar aos favoritos"}
+                          >
+                            <Star 
+                              size={16} 
+                              className={favorites.includes(med.name) ? "fill-amber-400 text-amber-500" : "text-slate-400"} 
+                            />
+                          </button>
+                          <ChevronRight size={16} className="text-slate-300 group-hover:text-indigo-400 group-hover:translate-x-1 transition-all hidden md:block" />
+                        </div>
                       </div>
-                      <ChevronRight size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 group-hover:text-indigo-400 group-hover:translate-x-1 transition-all hidden md:block" />
-                    </button>
+                    </div>
                   ))}
                 </div>
               ) : (
@@ -150,15 +203,23 @@ export default function MedicationPicker({ isOpen, onClose, onSelect }: Medicati
                   <div className="inline-block p-6 bg-slate-50 rounded-full text-slate-200 mb-4">
                     <Database size={48} />
                   </div>
-                  <h3 className="font-bold text-slate-400">Nenhum medicamento encontrado nesta categoria.</h3>
+                  <h3 className="font-bold text-slate-400">Nenhum medicamento encontrado.</h3>
                 </div>
               )}
             </div>
             
-            <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-center">
+            <div className="p-6 bg-slate-50 border-t border-slate-100 flex flex-col md:flex-row items-center justify-between gap-4 shrink-0">
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                 <Info size={12} /> Selecione um item para preencher os campos automaticamente
               </p>
+              <a 
+                href="/medicamentos" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-indigo-100/30 hover:bg-indigo-700 transition-all flex items-center gap-2"
+              >
+                <Database size={12} /> Gerenciar Medicamentos ↗
+              </a>
             </div>
           </motion.div>
         </div>

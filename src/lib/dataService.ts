@@ -37,6 +37,8 @@ export interface Patient {
   createdBy: string;
   createdAt?: any;
   updatedAt?: any;
+  allergies?: string;
+  comorbidities?: string;
 }
 
 export interface ClinicalRecord {
@@ -55,6 +57,7 @@ export interface Medication {
   category: 'Antibiótico' | 'Anti-inflamatório' | 'Corticóide' | 'Opioide' | 'Anestésico' | 'Outros';
   defaultQuantity: string;
   defaultPosology: string;
+  usability?: string;
   createdBy: string;
   createdAt?: any;
 }

@@ -11,6 +11,7 @@ import Login from './pages/Login';
 import AdminUsers from './pages/AdminUsers';
 import PatientRegistration from './pages/PatientRegistration';
 import DentalReport from './pages/DentalReport';
+import ValidateReport from './pages/ValidateReport';
 import MedicalRecord from './pages/MedicalRecord';
 import PatientsList from './pages/PatientsList';
 import MedicationManagement from './pages/MedicationManagement';
@@ -65,6 +66,7 @@ export default function App() {
             <Route path="/medicamentos" element={<ProtectedRoute><MedicationManagement /></ProtectedRoute>} />
             
             <Route path="/relatorio" element={<ProtectedRoute><DentalReport /></ProtectedRoute>} />
+            <Route path="/validar-relatorio" element={<ValidateReport />} />
             
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />

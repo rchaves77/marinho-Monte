@@ -79,7 +79,7 @@ export default function PatientsList() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
               <tr>
@@ -138,6 +138,56 @@ export default function PatientsList() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile View: Beautiful, easy-to-tap cards for daily hospital routines */}
+        <div className="block md:hidden divide-y divide-slate-100">
+          {loading ? (
+            <div className="py-16 text-center">
+              <Loader2 className="animate-spin text-indigo-600 mx-auto" size={32} />
+              <p className="text-slate-400 mt-3 font-medium uppercase text-[10px] tracking-widest">Carregando pacientes...</p>
+            </div>
+          ) : filteredPatients.length === 0 ? (
+            <div className="py-16 text-center text-slate-400 font-medium italic text-xs px-4">
+              {searchTerm ? 'Nenhum paciente encontrado para esta busca.' : 'Nenhum paciente cadastrado.'}
+            </div>
+          ) : (
+            filteredPatients.map((p) => (
+              <div key={p.id} className="p-5 space-y-4 hover:bg-slate-50/50 transition-colors">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 text-xs font-black border border-indigo-150 uppercase shrink-0">
+                      {(p.fullName || '??').substring(0, 2)}
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="font-extrabold text-slate-900 text-sm leading-tight truncate">{p.fullName || 'Sem Nome'}</h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] font-mono font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
+                          CPF: {p.documentId || '--'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mt-1">
+                    {p.birthDate}
+                  </span>
+                </div>
+                
+                <div className="flex items-center justify-between border-t border-slate-100/70 pt-3">
+                  <div className="flex items-center gap-1.5 text-slate-400 text-[10px] font-bold uppercase">
+                    <Calendar size={13} />
+                    <span>Inscrit: {p.createdAt ? p.createdAt.toDate().toLocaleDateString('pt-BR') : '--'}</span>
+                  </div>
+                  <Link 
+                    to={`/prontuario/${p.id}`}
+                    className="inline-flex items-center gap-1.5 px-5 py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-wider rounded-xl hover:bg-indigo-600 active:translate-y-0.5 transition-all shadow-sm"
+                  >
+                    Acessar Prontuário <ChevronRight size={13} />
+                  </Link>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
     </motion.div>

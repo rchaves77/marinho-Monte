@@ -258,34 +258,34 @@ export default function DentalReport() {
             background-color: #f1f5f9 !important;
             color: #000000 !important;
             border: 2px solid #000000 !important;
-            font-size: 11pt !important;
-            font-weight: 900 !important;
+            font-size: 12pt !important;
+            font-weight: 950 !important;
             text-transform: uppercase !important;
             text-align: left !important;
-            padding: 8px 10px !important;
+            padding: 10px 12px !important;
             letter-spacing: 0.05em !important;
           }
           .table-print-cell {
             border: 1.5px solid #000000 !important;
-            font-size: 12pt !important; /* Fonte tamanho 12 solicitado pelo usuario para excelente legibilidade */
+            font-size: 13pt !important; /* Fonte tamanho 13 solicitado para excelente legibilidade */
             font-weight: 700 !important;
             color: #000000 !important;
-            padding: 8px 10px !important;
-            line-height: 1.35 !important;
+            padding: 10px 12px !important;
+            line-height: 1.4 !important;
           }
           .table-print-cell-sub {
-            font-size: 10pt !important;
-            color: #475569 !important;
-            font-weight: 600 !important;
-            margin-top: 2px !important;
+            font-size: 11pt !important;
+            color: #1e293b !important;
+            font-weight: 750 !important;
+            margin-top: 4px !important;
             display: block !important;
           }
           .badge-sigtap-print {
             font-family: monospace !important;
-            font-size: 11pt !important;
+            font-size: 12pt !important;
             font-weight: 950 !important;
             border: 1.5px solid #000000 !important;
-            padding: 2px 6px !important;
+            padding: 3px 8px !important;
             background-color: #f8fafc !important;
             display: inline-block !important;
             border-radius: 4px !important;
@@ -785,7 +785,7 @@ export default function DentalReport() {
                 <tr key={proc.code}>
                   <td className="table-print-cell font-mono font-black">{proc.code}</td>
                   <td className="table-print-cell uppercase">{proc.name}</td>
-                  <td className="table-print-cell text-center font-extrabold text-[13pt]">{proc.count}</td>
+                  <td className="table-print-cell text-center font-extrabold text-[15pt]">{proc.count}</td>
                 </tr>
               ))}
               {sortedSummaryProcedures.length === 0 && (
@@ -824,23 +824,23 @@ export default function DentalReport() {
                     {new Date(item.date).toLocaleDateString('pt-BR')}
                   </td>
                   <td className="table-print-cell">
-                    <span className="font-extrabold block text-black uppercase leading-tight text-[12.5pt]">{item.patientName}</span>
+                    <span className="font-extrabold block text-black uppercase leading-tight text-[14pt]">{item.patientName}</span>
                     <span className="table-print-cell-sub uppercase">MÃE: {item.patientMotherName}</span>
                   </td>
                   <td className="table-print-cell space-y-0.5">
-                    <span className="block font-sans text-[11pt]">CPF: <strong className="font-mono text-[11.5pt]">{item.patientCpf || 'NÃO PORTAVA'}</strong></span>
-                    <span className="block font-sans text-[11pt] text-emerald-800">CNS: <strong className="font-mono text-[11.5pt]">{item.patientSusCard || 'NÃO PORTAVA'}</strong></span>
+                    <span className="block font-sans text-[12pt] text-black">CPF: <strong className="font-mono text-[12.5pt]">{item.patientCpf || 'NÃO PORTAVA'}</strong></span>
+                    <span className="block font-sans text-[12pt] text-emerald-950 font-bold">CNS: <strong className="font-mono text-[12.5pt]">{item.patientSusCard || 'NÃO PORTAVA'}</strong></span>
                   </td>
                   <td className="table-print-cell">
-                    <span className="block font-mono text-[11.5pt]">Nasc: {item.patientBirth}</span>
+                    <span className="block font-mono text-[12.5pt]">Nasc: {item.patientBirth}</span>
                     <span className="table-print-cell-sub">Tel: {item.patientPhone || '---'}</span>
                   </td>
                   <td className="table-print-cell">
                     <span className="badge-sigtap-print">{item.code}</span>
-                    <span className="table-print-cell-sub uppercase font-extrabold text-[10.5pt]">{item.name}</span>
+                    <span className="table-print-cell-sub uppercase font-extrabold text-[12pt]">{item.name}</span>
                   </td>
                   <td className="table-print-cell">
-                    <span className="block font-black uppercase leading-tight text-[11pt] text-slate-900">{item.dentist}</span>
+                    <span className="block font-black uppercase leading-tight text-[12.5pt] text-black">{item.dentist}</span>
                     <span className="table-print-cell-sub font-mono">CBO: {item.cbo}</span>
                   </td>
                 </tr>
@@ -875,7 +875,7 @@ export default function DentalReport() {
           {/* ICP Brasil e Auditoria QR-Code */}
           {(() => {
             const currentHost = typeof window !== 'undefined' ? window.location.origin : 'https://unidade-aurora.gov.br';
-            const validationUrl = `${currentHost}/relatorios?periodo=${selectedPeriod}&dentista=${encodeURIComponent(selectedDentist)}`;
+            const validationUrl = `${currentHost}/validar-relatorio?periodo=${selectedPeriod}&dentista=${encodeURIComponent(selectedDentist)}`;
             const validationCode = `USAD-VALID-${new Date().getFullYear()}-${selectedPeriod.substring(0,3).toUpperCase()}-${selectedDentist === 'all' ? 'GERAL' : (selectedDentist.split(' ')[1] || 'DENTISTA').toUpperCase()}`;
 
             return (

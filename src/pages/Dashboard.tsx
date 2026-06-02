@@ -450,7 +450,7 @@ export default function Dashboard() {
         {/* Database notification warnings removed as requested since only real clinic records exist now */}
 
 
-        <div className="overflow-x-auto mt-4">
+        <div className="hidden md:block overflow-x-auto mt-4">
           <table className="w-full text-left">
             <thead className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] border-b border-slate-100">
               <tr>
@@ -543,7 +543,7 @@ export default function Dashboard() {
                           <button
                             onClick={() => handleDeletePatient(p.id!, p.fullName)}
                             disabled={deletingPatientId === p.id}
-                            className="p-2 text-[#94a3b8] hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                            className="p-2 text-[#94a3b8] hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all border border-transparent cursor-pointer"
                             title="Excluir prontuário permanente"
                           >
                             {deletingPatientId === p.id ? (
@@ -560,6 +560,77 @@ export default function Dashboard() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Mobile View: High density interactive list with generous tap targets */}
+        <div className="block md:hidden divide-y divide-slate-100 mt-2">
+          {patients.length === 0 ? (
+            <div className="py-12 text-center text-slate-400 text-xs font-semibold px-4">
+              Nenhum paciente cadastrado no sistema.
+            </div>
+          ) : (
+            patients.map((p) => {
+              const getDisplayDocument = () => {
+                if (p.documentId && p.documentId.trim() !== '') {
+                  return { type: 'CPF', value: p.documentId };
+                }
+                if (p.susCard && p.susCard.trim() !== '') {
+                  return { type: 'CNS', value: p.susCard };
+                }
+                return { type: 'N/A', value: 'SEM DOC' };
+              };
+
+              const docInfo = getDisplayDocument();
+              const recCount = recordCounts[p.id!] !== undefined ? recordCounts[p.id!] : 0;
+
+              return (
+                <div key={p.id} className="p-5 space-y-4 hover:bg-slate-50/50 transition-colors">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 text-[10px] font-black border border-indigo-150 uppercase shrink-0">
+                        {(p.fullName || '??').substring(0, 2)}
+                      </div>
+                      <div className="min-w-0">
+                        <span className="font-extrabold text-slate-900 text-sm block truncate leading-tight">{p.fullName}</span>
+                        <span className="inline-block mt-1 text-[10px] font-mono font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                          {docInfo.type}: {docInfo.value}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-[10px] bg-indigo-100/80 text-indigo-700 border border-indigo-150 rounded-lg px-2 py-1 font-black shrink-0">
+                      {recCount} reg.
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-slate-100/80 pt-3">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase">
+                      Cad.: {p.createdAt ? p.createdAt.toDate().toLocaleDateString('pt-BR') : '--'}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <a 
+                        href={`/prontuario/${p.id}`}
+                        className="inline-flex items-center gap-1.5 px-4 py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-wider rounded-xl hover:bg-indigo-600"
+                      >
+                        Prontuário <ChevronRight size={13} />
+                      </a>
+                      <button
+                        onClick={() => handleDeletePatient(p.id!, p.fullName)}
+                        disabled={deletingPatientId === p.id}
+                        className="p-3 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer bg-slate-50 border border-slate-150"
+                        title="Excluir paciente"
+                      >
+                        {deletingPatientId === p.id ? (
+                          <Loader2 className="animate-spin" size={13} />
+                        ) : (
+                          <Trash2 size={13} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
         </div>
       </div>
 

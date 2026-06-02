@@ -20,8 +20,25 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const { user, profile, signIn, signOut, toggleRole, isOverrideActive } = useAuth();
-  const [isSidebarOpen, setIsSidebarOpen] = React.useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = React.useState(typeof window !== 'undefined' ? window.innerWidth >= 1024 : true);
   const location = useLocation();
+
+  React.useEffect(() => {
+    // Autoclose sidebar on mobile when navigating
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      setIsSidebarOpen(false);
+    }
+  }, [location.pathname]);
+
+  const isPublicRoute = location.pathname.startsWith('/validar-relatorio');
+
+  if (isPublicRoute) {
+    return (
+      <div className="min-h-screen bg-slate-50 font-sans text-[#0f172a]">
+        {children}
+      </div>
+    );
+  }
 
   // Define menu items based on role
   const filteredNavItems = NAV_ITEMS.filter(item => {
@@ -35,20 +52,22 @@ export default function Layout({ children }: LayoutProps) {
   });
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] font-sans text-[#0f172a]">
+    <div className="min-h-screen bg-[#f8fafc] font-sans text-[#0f172a] print:bg-white print:p-0 print:m-0">
       {/* Top Header */}
-      <header className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-[#e2e8f0] z-50 flex items-center justify-between px-8 shadow-sm">
-        <div className="flex items-center gap-4">
+      <header className="fixed top-0 left-0 right-0 h-16 bg-white border-b border-[#e2e8f0] z-50 flex items-center justify-between px-4 sm:px-8 shadow-sm print:hidden">
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
           <button 
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            className="p-2 hover:bg-slate-100 rounded-lg lg:hidden transition-colors"
+            className="p-2 hover:bg-slate-100 rounded-lg lg:hidden transition-colors shrink-0"
           >
             <Menu size={24} className="text-[#4f46e5]" />
           </button>
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-[#4f46e5] rounded-md flex items-center justify-center text-white font-bold shadow-md shadow-indigo-100">H</div>
-            <h1 className="text-lg font-bold text-[#0f172a] tracking-tight">
-              Hospital Dr. Manoel Marinho Monte <span className="hidden sm:inline font-medium text-slate-400">| SESACRE</span>
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="w-8 h-8 bg-[#4f46e5] rounded-md flex items-center justify-center text-white font-bold shadow-md shadow-indigo-100 shrink-0">H</div>
+            <h1 className="text-sm sm:text-lg font-bold text-[#0f172a] tracking-tight truncate">
+              <span className="hidden sm:inline">Hospital Dr. Manoel Marinho Monte</span>
+              <span className="sm:hidden">Hosp. Manoel Marinho</span>
+              <span className="hidden md:inline font-medium text-slate-400"> | SESACRE</span>
             </h1>
           </div>
         </div>
@@ -128,14 +147,14 @@ export default function Layout({ children }: LayoutProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setIsSidebarOpen(false)}
-            className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-30 lg:hidden"
+            className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-30 lg:hidden print:hidden"
           />
         )}
       </AnimatePresence>
 
       {/* Sidebar */}
       <aside 
-        className={`fixed left-0 top-0 h-full bg-white border-r border-[#e2e8f0] z-40 transition-all duration-300 
+        className={`fixed left-0 top-0 h-full bg-white border-r border-[#e2e8f0] z-40 transition-all duration-300 print:hidden 
           ${isSidebarOpen 
             ? 'w-64 translate-x-0' 
             : '-translate-x-full lg:translate-x-0 lg:w-20'}
@@ -221,10 +240,10 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Main Content */}
       <main 
-        className={`transition-all duration-300 pt-24 p-8 min-h-screen
-          ${isSidebarOpen ? 'lg:ml-64' : 'lg:ml-20'}`}
+        className={`transition-all duration-300 pt-20 pb-16 px-4 sm:px-6 lg:px-8 min-h-screen print:p-0 print:m-0 print:pt-0 print:pb-0 print:px-0 lg:print:ml-0
+          ${isSidebarOpen ? 'lg:ml-64 print:lg:ml-0' : 'lg:ml-20 print:lg:ml-0'}`}
       >
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-7xl mx-auto print:max-w-full print:w-full print:p-0">
           {children}
         </div>
       </main>

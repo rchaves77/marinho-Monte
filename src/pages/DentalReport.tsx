@@ -81,37 +81,59 @@ export default function DentalReport() {
   const flatProceduresList: any[] = [];
 
   filteredEvolutions.forEach((rec) => {
+    const listToProcess: any[] = [];
+    
+    // Check if there is already a consultation or urgency consultation procedure explicitly selected
+    let hasExplicitConsulta = false;
     if (rec.data.procedures && Array.isArray(rec.data.procedures)) {
-      rec.data.procedures.forEach((proc: any) => {
-        // Individual flat record entry for BPA listing
-        flatProceduresList.push({
-          patientName: rec.patientName,
-          patientMotherName: rec.patientMotherName || '---',
-          patientCpf: rec.patientCpf,
-          patientSusCard: rec.patientSusCard || '---',
-          patientBirth: rec.patientBirth,
-          patientPhone: rec.patientPhone || '---',
-          patientFullAddress: rec.patientFullAddress || '---',
-          cbo: rec.cbo || '2232-88',
-          date: rec._createdAt,
-          code: proc.code,
-          name: proc.name,
-          dentist: rec.professionalName
-        });
-
-        // Summary grouping
-        const existing = procedureSummaryMap.get(proc.code);
-        if (existing) {
-          existing.count += 1;
-        } else {
-          procedureSummaryMap.set(proc.code, {
-            code: proc.code,
-            name: proc.name,
-            count: 1
-          });
-        }
+      hasExplicitConsulta = rec.data.procedures.some(
+        (proc: any) => proc.code === '0301010048' || proc.code === '0301060061'
+      );
+    }
+    
+    // 1. Every evolution represents a clinical consultation session; add it if not explicitly added
+    if (!hasExplicitConsulta) {
+      listToProcess.push({
+        code: '0301010048',
+        name: 'Consulta de profissional de nível superior na atenção especializada (exceto médico)'
       });
     }
+
+    // 2. Add all explicitly registered procedures
+    if (rec.data.procedures && Array.isArray(rec.data.procedures)) {
+      rec.data.procedures.forEach((proc: any) => {
+        listToProcess.push(proc);
+      });
+    }
+
+    // 3. Process each item (adding them to the flat list and summary map)
+    listToProcess.forEach((proc: any) => {
+      flatProceduresList.push({
+        patientName: rec.patientName,
+        patientMotherName: rec.patientMotherName || '---',
+        patientCpf: rec.patientCpf,
+        patientSusCard: rec.patientSusCard || '---',
+        patientBirth: rec.patientBirth,
+        patientPhone: rec.patientPhone || '---',
+        patientFullAddress: rec.patientFullAddress || '---',
+        cbo: rec.cbo || '2232-88',
+        date: rec._createdAt,
+        code: proc.code,
+        name: proc.name,
+        dentist: rec.professionalName
+      });
+
+      const existing = procedureSummaryMap.get(proc.code);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        procedureSummaryMap.set(proc.code, {
+          code: proc.code,
+          name: proc.name,
+          count: 1
+        });
+      }
+    });
   });
 
   const totalProceduresPerformed = Array.from(procedureSummaryMap.values()).reduce((acc, cur) => acc + cur.count, 0);

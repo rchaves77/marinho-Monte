@@ -56,10 +56,46 @@ export default function ValidateReport() {
   }, [searchParams]);
 
   // Filter logic
+  const matchDentistName = (recordProfessional: string | undefined | null, selectedDentist: string): boolean => {
+    if (!recordProfessional) return false;
+    
+    const recUpper = recordProfessional.toUpperCase().trim();
+    const selUpper = selectedDentist.toUpperCase().trim();
+    
+    if (recUpper === selUpper) return true;
+    
+    const normalize = (str: string) => {
+      return str
+        .normalize('NFD') // remove accents
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\b(DRA?\s+|DRA?\.|DR\s+|DR\.)/gi, '') // remove "Dr.", "Dra.", "Dr", "Dra"
+        .replace(/\s+/g, ' ')
+        .trim();
+    };
+    
+    const normRec = normalize(recUpper);
+    const normSel = normalize(selUpper);
+    
+    if (normRec === normSel) return true;
+    if (!normRec || !normSel) return false;
+    
+    // Check if one contains the other
+    if (normRec.includes(normSel) || normSel.includes(normRec)) return true;
+    
+    // Split into words of 3+ letters and check for overlap
+    const wordsRec = normRec.split(' ').filter(w => w.length > 2);
+    const wordsSel = normSel.split(' ').filter(w => w.length > 2);
+    
+    const commonWords = wordsRec.filter(w => wordsSel.includes(w));
+    if (commonWords.length >= 2) return true;
+    
+    return false;
+  };
+
   const filteredEvolutions = allEvolutions.filter((record) => {
     // 1. Filter by Dentist
     if (selectedDentist !== 'all') {
-      const matchName = record.professionalName && record.professionalName.toUpperCase() === selectedDentist.toUpperCase();
+      const matchName = matchDentistName(record.professionalName, selectedDentist);
       if (!matchName) return false;
     }
 

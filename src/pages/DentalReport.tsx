@@ -49,10 +49,46 @@ export default function DentalReport() {
   }, []);
 
   // Filter logic
+  const matchDentistName = (recordProfessional: string | undefined | null, selectedDentist: string): boolean => {
+    if (!recordProfessional) return false;
+    
+    const recUpper = recordProfessional.toUpperCase().trim();
+    const selUpper = selectedDentist.toUpperCase().trim();
+    
+    if (recUpper === selUpper) return true;
+    
+    const normalize = (str: string) => {
+      return str
+        .normalize('NFD') // remove accents
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\b(DRA?\s+|DRA?\.|DR\s+|DR\.)/gi, '') // remove "Dr.", "Dra.", "Dr", "Dra"
+        .replace(/\s+/g, ' ')
+        .trim();
+    };
+    
+    const normRec = normalize(recUpper);
+    const normSel = normalize(selUpper);
+    
+    if (normRec === normSel) return true;
+    if (!normRec || !normSel) return false;
+    
+    // Check if one contains the other
+    if (normRec.includes(normSel) || normSel.includes(normRec)) return true;
+    
+    // Split into words of 3+ letters and check for overlap
+    const wordsRec = normRec.split(' ').filter(w => w.length > 2);
+    const wordsSel = normSel.split(' ').filter(w => w.length > 2);
+    
+    const commonWords = wordsRec.filter(w => wordsSel.includes(w));
+    if (commonWords.length >= 2) return true;
+    
+    return false;
+  };
+
   const filteredEvolutions = allEvolutions.filter((record) => {
     // 1. Filter by Dentist
     if (selectedDentist !== 'all') {
-      const matchName = record.professionalName && record.professionalName.toUpperCase() === selectedDentist.toUpperCase();
+      const matchName = matchDentistName(record.professionalName, selectedDentist);
       if (!matchName) return false;
     }
 
@@ -234,12 +270,12 @@ export default function DentalReport() {
 
   return (
     <>
-      {/* Estilos dedicados para impressao em Paisagem com Fonte Legivel tamanho 12 */}
+      {/* Estilos dedicados para impressao em Paisagem com Fonte Legivel de Alta Visibilidade */}
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
           @page {
             size: landscape !important;
-            margin: 1.0cm !important;
+            margin: 0.8cm !important;
           }
           body {
             background-color: white !important;
@@ -248,78 +284,133 @@ export default function DentalReport() {
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
+          .print-main-title {
+            font-size: 24pt !important;
+            font-weight: 950 !important;
+            color: #000000 !important;
+            text-transform: uppercase !important;
+            letter-spacing: -0.02em !important;
+            line-height: 1.1 !important;
+          }
+          .print-main-subtitle {
+            font-size: 14pt !important;
+            font-weight: 800 !important;
+            color: #1e293b !important;
+            margin-top: 6px !important;
+          }
+          .print-main-meta {
+            font-size: 12pt !important;
+            font-weight: 600 !important;
+            color: #475569 !important;
+            margin-top: 6px !important;
+          }
+          .print-header-right-title {
+            font-size: 12pt !important;
+            font-weight: 950 !important;
+            color: #4f46e5 !important;
+            letter-spacing: 0.1em !important;
+          }
+          .print-header-right-text {
+            font-size: 13pt !important;
+            font-weight: 800 !important;
+            color: #090d16 !important;
+            text-transform: uppercase !important;
+            margin-top: 4px !important;
+          }
           .table-print-layout {
             width: 100% !important;
             border-collapse: collapse !important;
-            margin-top: 12px !important;
-            margin-bottom: 20px !important;
+            margin-top: 14px !important;
+            margin-bottom: 24px !important;
           }
           .table-print-header {
             background-color: #f1f5f9 !important;
             color: #000000 !important;
-            border: 2px solid #000000 !important;
-            font-size: 12pt !important;
+            border: 2.5px solid #000000 !important;
+            font-size: 14pt !important;
             font-weight: 950 !important;
             text-transform: uppercase !important;
             text-align: left !important;
-            padding: 10px 12px !important;
+            padding: 12px 14px !important;
             letter-spacing: 0.05em !important;
           }
           .table-print-cell {
-            border: 1.5px solid #000000 !important;
-            font-size: 13pt !important; /* Fonte tamanho 13 solicitado para excelente legibilidade */
-            font-weight: 700 !important;
+            border: 2px solid #000000 !important;
+            font-size: 14.5pt !important; /* Fonte maior para excelente legibilidade */
+            font-weight: 750 !important;
             color: #000000 !important;
-            padding: 10px 12px !important;
-            line-height: 1.4 !important;
+            padding: 12px 14px !important;
+            line-height: 1.45 !important;
           }
           .table-print-cell-sub {
-            font-size: 11pt !important;
-            color: #1e293b !important;
-            font-weight: 750 !important;
-            margin-top: 4px !important;
+            font-size: 12.5pt !important; /* Subtítulos bem maiores para serem perfeitamente visíveis */
+            color: #0f172a !important;   /* Tom mais escuro para maior contraste */
+            font-weight: 800 !important;
+            margin-top: 6px !important;
             display: block !important;
           }
           .badge-sigtap-print {
             font-family: monospace !important;
-            font-size: 12pt !important;
+            font-size: 13.5pt !important;
             font-weight: 950 !important;
-            border: 1.5px solid #000000 !important;
-            padding: 3px 8px !important;
-            background-color: #f8fafc !important;
-            display: inline-block !important;
-            border-radius: 4px !important;
-          }
-          .print-header-badge {
             border: 2px solid #000000 !important;
             padding: 4px 10px !important;
-            font-weight: 900 !important;
+            background-color: #f1f5f9 !important;
+            display: inline-block !important;
+            border-radius: 6px !important;
+          }
+          .print-header-badge {
+            border: 2.5px solid #000000 !important;
+            padding: 6px 12px !important;
+            font-weight: 1000 !important;
+            font-size: 12pt !important;
           }
           .print-section-heading {
-            font-size: 14pt !important;
-            font-weight: 950 !important;
+            font-size: 18pt !important; /* Títulos de seção aumentados para excelente hierarquia */
+            font-weight: 1000 !important;
             text-transform: uppercase !important;
-            border-bottom: 3.5px double #000000 !important;
-            padding-bottom: 4px !important;
-            margin-top: 25px !important;
-            margin-bottom: 12px !important;
+            border-bottom: 4px double #000000 !important;
+            padding-bottom: 6px !important;
+            margin-top: 30px !important;
+            margin-bottom: 8px !important;
             color: #000000 !important;
-            letter-spacing: 0.05em !important;
+            letter-spacing: 0.03em !important;
+          }
+          .print-section-subheading {
+            font-size: 13.5pt !important; /* Subtítulos das seções aumentados */
+            color: #1e293b !important;
+            font-weight: 800 !important;
+            margin-bottom: 16px !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.02em !important;
           }
           .print-grid-stats {
             display: grid !important;
             grid-template-cols: repeat(3, minmax(0, 1fr)) !important;
-            gap: 15px !important;
-            margin-bottom: 25px !important;
+            gap: 18px !important;
+            margin-bottom: 30px !important;
           }
           .print-stat-item {
-            border: 2.5px solid #000000 !important;
-            padding: 12px !important;
-            border-radius: 8px !important;
+            border: 3px solid #000000 !important;
+            padding: 14px !important;
+            border-radius: 10px !important;
             text-align: center !important;
+            background-color: #f8fafc !important;
           }
-          .print-stat-item p {
+          .print-stat-label {
+            font-size: 12pt !important;
+            font-weight: 950 !important;
+            color: #475569 !important;
+            text-transform: uppercase !important;
+            letter-spacing: 0.05em !important;
             margin: 0 !important;
+          }
+          .print-stat-value {
+            font-size: 34pt !important;
+            font-weight: 1000 !important;
+            color: #000000 !important;
+            margin: 4px 0 0 0 !important;
+            line-height: 1.1 !important;
           }
           .print-page-break {
             page-break-before: always !important;
@@ -454,9 +545,9 @@ export default function DentalReport() {
 
         <div className="bg-white border border-slate-200/50 p-6 rounded-3xl flex items-center justify-between shadow-sm relative overflow-hidden group">
           <div className="space-y-1 relative z-10">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Procedimentos Realizados</p>
+            <p className="text-[12px] font-black text-slate-400 uppercase tracking-widest">Procedimentos Realizados</p>
             <p className="text-3xl font-black text-slate-900">{totalProceduresPerformed}</p>
-            <p className="text-[10px] font-bold text-emerald-500">Lançamentos faturáveis</p>
+            <p className="text-[12px] font-bold text-emerald-500">Lançamentos faturáveis</p>
           </div>
           <div className="w-12 h-12 bg-emerald-50 border border-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
             <CheckCircle2 size={22} />
@@ -737,16 +828,16 @@ export default function DentalReport() {
         <div className="border-b-4 border-black pb-4 mb-6">
           <div className="flex justify-between items-end">
             <div>
-              <h2 className="text-2xl font-black tracking-tight uppercase">Unidade de Saúde Aurora Digital</h2>
-              <p className="text-sm font-bold uppercase mt-0.5">Relatório Consolidado de Pacientes e Códigos Clínicos (SAME / AIH)</p>
-              <p className="text-xs font-bold text-slate-500 font-mono mt-1">EMISSÃO AUTOMÁTICA EM: {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}</p>
+              <h2 className="print-main-title">Unidade de Saúde Aurora Digital</h2>
+              <p className="print-main-subtitle">Relatório Consolidado de Pacientes e Códigos Clínicos (SAME / AIH)</p>
+              <p className="print-main-meta font-mono">EMISSÃO AUTOMÁTICA EM: {new Date().toLocaleDateString('pt-BR')} às {new Date().toLocaleTimeString('pt-BR')}</p>
             </div>
             <div className="text-right">
-              <span className="print-header-badge font-black text-[10px] uppercase tracking-widest border border-black px-3 py-1 rounded inline-block">
+              <span className="print-header-badge block">
                 CONTROLE DE REMESSA DE PROCEDIMENTOS
               </span>
-              <p className="text-xs font-bold uppercase mt-2">DENTISTA: {selectedDentist === 'all' ? 'TODOS OS PROFISSIONAIS' : selectedDentist.toUpperCase()}</p>
-              <p className="text-xs font-bold uppercase">PERÍODO: {formatPeriodLabel().toUpperCase()}</p>
+              <p className="print-header-right-text">DENTISTA: {selectedDentist === 'all' ? 'TODOS OS PROFISSIONAIS' : selectedDentist.toUpperCase()}</p>
+              <p className="print-header-right-text">PERÍODO: {formatPeriodLabel().toUpperCase()}</p>
             </div>
           </div>
         </div>
@@ -754,23 +845,23 @@ export default function DentalReport() {
         {/* Principais Metricas */}
         <div className="print-grid-stats">
           <div className="print-stat-item">
-            <p className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Total de Consultas</p>
-            <p className="text-3xl font-black mt-1">{totalConsultations}</p>
+            <p className="print-stat-label">Total de Consultas</p>
+            <p className="print-stat-value">{totalConsultations}</p>
           </div>
           <div className="print-stat-item">
-            <p className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Procedimentos Realizados</p>
-            <p className="text-3xl font-black mt-1">{totalProceduresPerformed}</p>
+            <p className="print-stat-label">Procedimentos Realizados</p>
+            <p className="print-stat-value">{totalProceduresPerformed}</p>
           </div>
           <div className="print-stat-item">
-            <p className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Média por Atendimento</p>
-            <p className="text-3xl font-black mt-1">{avgProceduresPerConsultation}</p>
+            <p className="print-stat-label">Média por Atendimento</p>
+            <p className="print-stat-value">{avgProceduresPerConsultation}</p>
           </div>
         </div>
 
         {/* SECAO 1: CONSOLIDACAO SIGTAP */}
         <div className="print-no-break">
           <h3 className="print-section-heading">1. Demostrativo Quantitativo de Procedimentos (Consolidação SIGTAP)</h3>
-          <p className="text-[11px] text-slate-600 font-bold mb-3 uppercase tracking-wide">Volume e distribuicao total dos codigos de procedimentos odontologicos realizados na unidade.</p>
+          <p className="print-section-subheading">Volume e distribuicao total dos codigos de procedimentos odontologicos realizados na unidade.</p>
           
           <table className="table-print-layout">
             <thead>
@@ -804,7 +895,7 @@ export default function DentalReport() {
         {/* SECAO 2: LISTAGEM DE PACIENTES PARA AIH / SAME */}
         <div>
           <h3 className="print-section-heading">2. Relação Nominal de Procedimentos Clínicos por Paciente (Remessa SAME / AIH)</h3>
-          <p className="text-[11px] text-slate-600 font-bold mb-3 uppercase tracking-wide">Tabela contendo os dados identificadores completos de faturamento, CPF, CNS, filiacao e codigos praticados.</p>
+          <p className="print-section-subheading">Tabela contendo os dados identificadores completos de faturamento, CPF, CNS, filiacao e codigos praticados.</p>
 
           <table className="table-print-layout">
             <thead>
@@ -828,27 +919,27 @@ export default function DentalReport() {
                     <span className="table-print-cell-sub uppercase">MÃE: {item.patientMotherName}</span>
                   </td>
                   <td className="table-print-cell space-y-0.5">
-                    <span className="block font-sans text-[12pt] text-black">CPF: <strong className="font-mono text-[12.5pt]">{item.patientCpf || 'NÃO PORTAVA'}</strong></span>
-                    <span className="block font-sans text-[12pt] text-emerald-950 font-bold">CNS: <strong className="font-mono text-[12.5pt]">{item.patientSusCard || 'NÃO PORTAVA'}</strong></span>
+                    <span className="block font-sans text-[12.5pt] text-black">CPF: <strong className="font-mono text-[13pt]">{item.patientCpf || 'NÃO PORTAVA'}</strong></span>
+                    <span className="block font-sans text-[12.5pt] text-emerald-950 font-bold">CNS: <strong className="font-mono text-[13pt]">{item.patientSusCard || 'NÃO PORTAVA'}</strong></span>
                   </td>
                   <td className="table-print-cell">
-                    <span className="block font-mono text-[12.5pt]">Nasc: {item.patientBirth}</span>
+                    <span className="block font-mono text-[13pt]">Nasc: {item.patientBirth}</span>
                     <span className="table-print-cell-sub">Tel: {item.patientPhone || '---'}</span>
                   </td>
                   <td className="table-print-cell">
                     <span className="badge-sigtap-print">{item.code}</span>
-                    <span className="table-print-cell-sub uppercase font-extrabold text-[12pt]">{item.name}</span>
+                    <span className="table-print-cell-sub uppercase font-extrabold text-[12.5pt]">{item.name}</span>
                   </td>
                   <td className="table-print-cell">
-                    <span className="block font-black uppercase leading-tight text-[12.5pt] text-black">{item.dentist}</span>
+                    <span className="block font-black uppercase leading-tight text-[13.5pt] text-black">{item.dentist}</span>
                     <span className="table-print-cell-sub font-mono">CBO: {item.cbo}</span>
                   </td>
                 </tr>
               ))}
               {flatProceduresList.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="table-print-cell text-center italic py-6">
-                    Nenhum lançamento odontológico individualizado registrado.
+                   <td colSpan={6} className="table-print-cell text-center italic py-6">
+                    Nenhum faturamento individualizado registrado.
                   </td>
                 </tr>
               )}
@@ -862,13 +953,13 @@ export default function DentalReport() {
           <div className="grid grid-cols-2 gap-12 text-center text-xs mb-8">
             <div className="space-y-1">
               <div className="h-10 border-b border-black w-3/4 mx-auto" />
-              <p className="font-bold uppercase text-[10px] text-slate-800">Assinatura do Cirurgião Responsável</p>
-              <p className="text-[9px] text-slate-400 font-bold">Solicitante Odontológico Credenciado</p>
+              <p className="font-bold uppercase text-[12px] text-slate-900">Assinatura do Cirurgião Responsável</p>
+              <p className="text-[10px] text-slate-500 font-bold">Solicitante Odontológico Credenciado</p>
             </div>
             <div className="space-y-1">
               <div className="h-10 border-b border-black w-3/4 mx-auto" />
-              <p className="font-bold uppercase text-[10px] text-slate-800">Responsável Clinico / SAME</p>
-              <p className="text-[9px] text-slate-400 font-bold">Processamento de Faturamento SUS</p>
+              <p className="font-bold uppercase text-[12px] text-slate-900">Responsável Clinico / SAME</p>
+              <p className="text-[10px] text-slate-500 font-bold">Processamento de Faturamento SUS</p>
             </div>
           </div>
 
@@ -879,20 +970,20 @@ export default function DentalReport() {
             const validationCode = `USAD-VALID-${new Date().getFullYear()}-${selectedPeriod.substring(0,3).toUpperCase()}-${selectedDentist === 'all' ? 'GERAL' : (selectedDentist.split(' ')[1] || 'DENTISTA').toUpperCase()}`;
 
             return (
-              <div className="border-2 border-black p-4 rounded-xl flex items-center justify-between gap-6 bg-slate-50">
+              <div className="border-2 border-black p-5 rounded-xl flex items-center justify-between gap-6 bg-slate-50">
                 <div className="flex items-center gap-6">
-                  <div className="border-2 border-black bg-emerald-50 text-[#004e32] px-3 py-2 text-center rounded shrink-0">
-                    <div className="font-black text-[9px] tracking-widest leading-none">ASSINADO</div>
-                    <div className="font-extrabold text-[11px] uppercase mt-0.5">DIGITALMENTE</div>
-                    <div className="text-[7px] font-bold text-slate-500 mt-1 uppercase">ICP-BRASIL MP 2200-2</div>
+                  <div className="border-2 border-black bg-emerald-50 text-[#004e32] px-4 py-2.5 text-center rounded shrink-0">
+                    <div className="font-black text-[10pt] tracking-widest leading-none">ASSINADO</div>
+                    <div className="font-extrabold text-[12pt] uppercase mt-0.5">DIGITALMENTE</div>
+                    <div className="text-[8pt] font-semibold text-slate-600 mt-1 uppercase">ICP-BRASIL MP 2200-2</div>
                   </div>
                   <div className="space-y-1 text-left">
-                    <h5 className="text-[11px] font-black uppercase text-slate-900">Certidão Automática de Validação de Remessa SAME</h5>
-                    <p className="text-[10px] text-slate-600 leading-normal max-w-xl">
+                    <h5 className="text-[14pt] font-black uppercase text-slate-950">Certidão Automática de Validação de Remessa SAME</h5>
+                    <p className="text-[12pt] text-slate-800 leading-normal max-w-xl font-medium">
                       Certificamos a integridade, o quantitativo nominal e a validade digital desta folha nominal odontologica gerada para envio aos setores SAME / AIH. A verificação pública está disponível online.
                     </p>
-                    <div className="text-[9px] font-mono text-slate-500">
-                      ID AUDITORIA: <strong className="text-black">{validationCode}</strong> | LINK DE VALIDAÇÃO: <span className="underline text-black font-bold">{validationUrl}</span>
+                    <div className="text-[11.5pt] font-mono text-slate-700 mt-1">
+                      ID AUDITORIA: <strong className="text-black">{validationCode}</strong> | LINK DE VALIDAÇÃO: <span className="underline text-black font-extrabold">{validationUrl}</span>
                     </div>
                   </div>
                 </div>
@@ -903,7 +994,7 @@ export default function DentalReport() {
                     className="w-16 h-16 border border-slate-300 rounded"
                     referrerPolicy="no-referrer"
                   />
-                  <span className="text-[8px] font-bold text-slate-500 uppercase">Validação SAME</span>
+                  <span className="text-[10px] font-bold text-slate-900 uppercase">Validação SAME</span>
                 </div>
               </div>
             );

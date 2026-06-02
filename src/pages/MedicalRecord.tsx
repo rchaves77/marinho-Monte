@@ -275,7 +275,7 @@ export default function MedicalRecord() {
         type: typeMap[tabType],
         data,
         createdBy: user.uid,
-        professionalName: selectedDentist || user.displayName || 'Profissional',
+        professionalName: selectedDentist || (dentistsList && dentistsList.length > 0 ? dentistsList[0].name : '') || user.displayName || 'Profissional',
         createdAt: new Date(attendanceDate)
       });
 
